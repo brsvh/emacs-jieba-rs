@@ -84,6 +84,19 @@
             system,
             ...
           }:
+          let
+            inherit (lib)
+              foldl'
+              importTOML
+              versions
+              ;
+
+            inherit (pkgs)
+              writeShellApplication
+              ;
+
+            crane-lib = (crane.mkLib pkgs);
+          in
           {
             _module = {
               args = {
@@ -103,18 +116,11 @@
 
             packages =
               let
-                crane-lib = (crane.mkLib pkgs);
-
                 inherit
                   (crane-lib.overrideToolchain pkgs.rust-bin.stable.latest.default)
                   buildPackage
                   ;
 
-                inherit (lib)
-                  importTOML
-                  ;
-              in
-              {
                 emacs-jieba-rs =
                   let
                     src = projectRoot;
@@ -131,6 +137,46 @@
                     cargoExtraArgs = "--lib";
                     doCheck = true;
                   };
+
+                buildTests =
+                  emacs:
+                  writeShellApplication {
+                    name = "emacs${versions.major emacs.version}-jieba-rs-tests";
+
+                    runtimeInputs = [
+                      emacs
+                    ];
+
+                    text = ''
+                      emacs --batch \
+                        --eval "(module-load \"${emacs-jieba-rs}/lib/libemacs_jieba_rs.so\")" \
+                        -l "${projectRoot + /tests/jieba-rs-tests.el}" \
+                        -f ert-run-tests-batch-and-exit
+                    '';
+                  };
+              in
+              (foldl'
+                (
+                  acc: pkg:
+                  acc
+                  // {
+                    "emacs${versions.major pkg.version}-jieba-rs-tests" =
+                      buildTests pkg;
+                  }
+                )
+                { }
+                (
+                  with pkgs;
+                  [
+                    emacs30
+                    emacs31
+                  ]
+                )
+              )
+              // {
+                inherit
+                  emacs-jieba-rs
+                  ;
               };
           };
 

@@ -1,0 +1,12 @@
+[package]
+authors = ["Bingshan Chang <chang@bingshan.org>"]
+edition = "2024"
+license = "GPL-3.0-or-later"
+name = "emacs-jieba-rs"
+version = "0.1.0"
+
+[dependencies]
+emacs = "0.21"
+
+[lib]
+crate-type = ["cdylib"]

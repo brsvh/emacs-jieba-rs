@@ -18,4 +18,8 @@
 /result
 /result-*
 
+# rust
+/debug
+/target
+
 # .gitignore ends here

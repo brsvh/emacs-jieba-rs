@@ -35,6 +35,44 @@
           ;
       }
       {
+        imports = [
+          flake-parts.flakeModules.partitions
+        ];
+
+        partitionedAttrs = {
+          devShells = "build-aux";
+          formatter = "build-aux";
+        };
+
+        partitions = {
+          build-aux = {
+            extraInputsFlake = ./build-aux;
+
+            module =
+              {
+                ...
+              }:
+              {
+                imports = [
+                  ./build-aux/flake-module.nix
+                ];
+              };
+          };
+        };
+
+        perSystem =
+          {
+            system,
+            ...
+          }:
+          {
+            _module = {
+              args = {
+                projectRoot = ./.;
+              };
+            };
+          };
+
         systems = [
           "x86_64-linux"
         ];

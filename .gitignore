@@ -1,5 +1,15 @@
 # .gitignore --- Git untracked files -*- mode: gitignore; -*-
 
+# devshells
+/.editorconfig
+/opencode.json
+/prek.toml
+/treefmt.toml
+
+# direnv
+/.direnv
+/.envrc
+
 # emacs
 .dir-locals.el
 

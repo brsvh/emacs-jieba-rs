@@ -11,3 +11,4 @@ jieba-rs = "0.10"
 
 [lib]
 crate-type = ["cdylib"]
+name = "jieba_rs_module"

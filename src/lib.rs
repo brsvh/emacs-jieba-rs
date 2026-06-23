@@ -118,7 +118,7 @@ fn segment_tag<'a>(
     Ok(vec)
 }
 
-#[emacs::module(name = "jieba-rs")]
+#[emacs::module(name = "jieba-rs-module")]
 fn init(_: &Env) -> Result<()> {
     Ok(())
 }

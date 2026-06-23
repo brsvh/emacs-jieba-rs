@@ -1,4 +1,4 @@
-;;; jieba-rs-tests.el --- Integration tests for jieba-rs  -*- lexical-binding: t; -*-
+;;; jieba-rs-tests.el --- jieba-rs tests -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2026 Bingshan Chang <chang@bingshan.org>
 
@@ -24,67 +24,69 @@
 ;;; Code:
 
 (require 'ert)
+(require 'jieba-rs)
+(require 'jieba-rs-module)
 
-(ert-deftest jieba-rs-segment-precise ()
+(ert-deftest jieba-rs-tests-segment-precise ()
   "Basic Chinese word segmentation in precise mode."
-  (should (equal (jieba-rs-segment "我们中出了一个叛徒" nil)
+  (should (equal (jieba-rs-module-segment "我们中出了一个叛徒" nil)
                  ["我们" "中" "出" "了" "一个" "叛徒"])))
 
-(ert-deftest jieba-rs-segment-empty ()
+(ert-deftest jieba-rs-tests-segment-empty ()
   "Segmenting an empty string yields an empty vector."
-  (should (equal (jieba-rs-segment "" nil) [])))
+  (should (equal (jieba-rs-module-segment "" nil) [])))
 
-(ert-deftest jieba-rs-segment-single-char ()
+(ert-deftest jieba-rs-tests-segment-single-char ()
   "Segmenting a single Chinese character."
-  (should (equal (jieba-rs-segment "我" nil) ["我"])))
+  (should (equal (jieba-rs-module-segment "我" nil) ["我"])))
 
-(ert-deftest jieba-rs-segment-ascii-mixed ()
+(ert-deftest jieba-rs-tests-segment-ascii-mixed ()
   "Segmenting text with mixed CJK and ASCII."
-  (should (equal (jieba-rs-segment "hello世界" nil)
+  (should (equal (jieba-rs-module-segment "hello世界" nil)
                  ["hello" "世界"])))
 
-(ert-deftest jieba-rs-segment-long-text ()
+(ert-deftest jieba-rs-tests-segment-long-text ()
   "Segmenting longer text yields a non-empty vector."
-  (let ((vec (jieba-rs-segment "我爱北京天安门天安门上太阳升" nil)))
+  (let ((vec (jieba-rs-module-segment "我爱北京天安门天安门上太阳升" nil)))
     (should (vectorp vec))
     (should (> (length vec) 0))))
 
-(ert-deftest jieba-rs-segment-return-type ()
-  "jieba-rs-segment always returns a vector."
-  (should (vectorp (jieba-rs-segment "测试" nil)))
-  (should (vectorp (jieba-rs-segment "" nil))))
+(ert-deftest jieba-rs-tests-segment-return-type ()
+  "jieba-rs-module-segment always returns a vector."
+  (should (vectorp (jieba-rs-module-segment "测试" nil)))
+  (should (vectorp (jieba-rs-module-segment "" nil))))
 
-(ert-deftest jieba-rs-segment-with-hmm ()
-  "jieba-rs-segment with HMM enabled."
-  (let ((vec (jieba-rs-segment "我们中出了一个叛徒" t)))
+(ert-deftest jieba-rs-tests-segment-with-hmm ()
+  "Segmentation with HMM enabled yields a vector."
+  (let ((vec (jieba-rs-module-segment "我们中出了一个叛徒" t)))
     (should (vectorp vec))
     (should (> (length vec) 0))))
 
-(ert-deftest jieba-rs-segment-all-works ()
-  "jieba-rs-segment-all returns overlapping sub-words in full mode."
-  (let ((vec (jieba-rs-segment-all "南京市长江大桥")))
+(ert-deftest jieba-rs-tests-module-segment-all-works ()
+  "Full-mode segmentation returns overlapping sub-words."
+  (let ((vec (jieba-rs-module-segment-all "南京市长江大桥")))
     (should (vectorp vec))
     (should (seq-contains-p vec "南京"))))
 
-(ert-deftest jieba-rs-segment-all-return-type ()
-  "jieba-rs-segment-all always returns a vector."
-  (should (vectorp (jieba-rs-segment-all "测试")))
-  (should (vectorp (jieba-rs-segment-all ""))))
+(ert-deftest jieba-rs-tests-module-segment-all-return-type ()
+  "jieba-rs-module-segment-all always returns a vector."
+  (should (vectorp (jieba-rs-module-segment-all "测试")))
+  (should (vectorp (jieba-rs-module-segment-all ""))))
 
-(ert-deftest jieba-rs-segment-search-works ()
-  "jieba-rs-segment-search returns bigrams for longer words."
-  (let ((vec (jieba-rs-segment-search "南京市长江大桥" t)))
+(ert-deftest jieba-rs-tests-module-segment-search-works ()
+  "jieba-rs-module-segment-search returns bigrams for longer words."
+  (let ((vec (jieba-rs-module-segment-search "南京市长江大桥" t)))
     (should (vectorp vec))
     (should (seq-contains-p vec "长江大桥"))))
 
-(ert-deftest jieba-rs-segment-search-return-type ()
-  "jieba-rs-segment-search always returns a vector."
-  (should (vectorp (jieba-rs-segment-search "测试" nil)))
-  (should (vectorp (jieba-rs-segment-search "" nil))))
+(ert-deftest jieba-rs-tests-module-segment-search-return-type ()
+  "jieba-rs-module-segment-search always returns a vector."
+  (should (vectorp (jieba-rs-module-segment-search "测试" nil)))
+  (should (vectorp (jieba-rs-module-segment-search "" nil))))
 
-(ert-deftest jieba-rs-segment-tag-works ()
-  "jieba-rs-segment-tag returns plists with :word and :category."
-  (let ((vec (jieba-rs-segment-tag "我是中国人" t)))
+(ert-deftest jieba-rs-tests-module-segment-tag-works ()
+  "jieba-rs-module-segment-tag returns POS tagging results."
+  (let ((vec (jieba-rs-module-segment-tag "我是中国人" t)))
     (should (vectorp vec))
     (should (> (length vec) 0))
     (let ((item (aref vec 0)))
@@ -93,10 +95,92 @@
       (should (plist-member item :word))
       (should (plist-member item :category)))))
 
-(ert-deftest jieba-rs-segment-tag-return-type ()
-  "jieba-rs-segment-tag always returns a vector."
-  (should (vectorp (jieba-rs-segment-tag "测试" nil)))
-  (should (vectorp (jieba-rs-segment-tag "" nil))))
+(ert-deftest jieba-rs-tests-module-segment-tag-return-type ()
+  "jieba-rs-module-segment-tag always returns a vector."
+  (should (vectorp (jieba-rs-module-segment-tag "测试" nil)))
+  (should (vectorp (jieba-rs-module-segment-tag "" nil))))
+
+(ert-deftest jieba-rs-tests--format-words ()
+  "jieba-rs--format-words joins word vector with | separators."
+  (should (equal (jieba-rs--format-words ["我" "是" "谁"])
+                 "我 | 是 | 谁"))
+  (should (equal (jieba-rs--format-words ["hello" "世界"])
+                 "hello | 世界"))
+  (should (equal (jieba-rs--format-words []) "")))
+
+(ert-deftest jieba-rs-tests--segment-function-arity ()
+  "Return the arity of each segment function."
+  (should (= (jieba-rs--segment-function-arity
+              'jieba-rs-module-segment-all) 1))
+  (should (= (jieba-rs--segment-function-arity
+              'jieba-rs-module-segment) 2))
+  (should (= (jieba-rs--segment-function-arity
+              'jieba-rs-module-segment-search) 2)))
+
+(ert-deftest jieba-rs-tests--show-tooltip-noop ()
+  "Display text via message when tooltip-mode is off."
+  (should (stringp (jieba-rs--show-tooltip "test"))))
+
+(ert-deftest jieba-rs-tests-segment-region-works ()
+  "Segment text in region and show results."
+  (with-temp-buffer
+    (insert "我们中出了一个叛徒")
+    (jieba-rs-mode 1)
+    (let ((jieba-rs-hmm nil))
+      (jieba-rs-segment-region (point-min) (point-max)))
+    (let ((words (with-current-buffer "*jieba-rs-segment*"
+                   (buffer-substring-no-properties
+                    (point-min) (point-max)))))
+      (should (string-match-p "我们" words))
+      (should (string-match-p "叛徒" words))
+      (should (string-match-p " | " words)))))
+
+(ert-deftest jieba-rs-tests-segment-buffer-works ()
+  "Segment text in buffer and show results."
+  (with-temp-buffer
+    (insert "南京市长江大桥")
+    (jieba-rs-mode 1)
+    (let ((jieba-rs-hmm nil))
+      (jieba-rs-segment-buffer))
+    (let ((words (with-current-buffer "*jieba-rs-segment*"
+                   (buffer-substring-no-properties
+                    (point-min) (point-max)))))
+      (should (string-match-p "南京" words))
+      (should (string-match-p "长江大桥" words))
+      (should (string-match-p " | " words)))))
+
+(ert-deftest jieba-rs-tests-hmm-differs ()
+  "jieba-rs--call-segment passes HMM flag through to native function."
+  (let ((jieba-rs-segment-function 'jieba-rs-module-segment))
+    (let ((jieba-rs-hmm nil))
+      (should (vectorp (jieba-rs--call-segment "测试"))))
+    (let ((jieba-rs-hmm t))
+      (should (vectorp (jieba-rs--call-segment "测试"))))))
+
+(ert-deftest jieba-rs-tests-segment-function-differs ()
+  "Call dispatch respects jieba-rs-segment-function."
+  (let* ((jieba-rs-hmm nil)
+         (jieba-rs-segment-function 'jieba-rs-module-segment)
+         (precise (jieba-rs--call-segment "测试"))
+         (jieba-rs-segment-function 'jieba-rs-module-segment-all)
+         (full (jieba-rs--call-segment "测试"))
+         (jieba-rs-segment-function 'jieba-rs-module-segment-search)
+         (search (jieba-rs--call-segment "测试")))
+    (should (vectorp precise))
+    (should (vectorp full))
+    (should (vectorp search))
+    (should-not (equal precise nil))
+    (should-not (equal full nil))
+    (should-not (equal search nil))))
+
+(ert-deftest jieba-rs-tests-mode-toggle ()
+  "jieba-rs-mode toggles on and off correctly."
+  (with-temp-buffer
+    (should-not jieba-rs-mode)
+    (jieba-rs-mode 1)
+    (should jieba-rs-mode)
+    (jieba-rs-mode -1)
+    (should-not jieba-rs-mode)))
 
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

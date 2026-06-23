@@ -37,23 +37,137 @@
       flake-parts,
       nixpkgs,
       rust-overlay,
+      self,
       ...
     }:
     let
       inherit (flake-parts.lib)
         mkFlake
         ;
+
+      projectRoot = ./.;
     in
     mkFlake
       {
         inherit
           inputs
           ;
+
+        specialArgs = {
+          inherit
+            projectRoot
+            ;
+        };
       }
       {
         imports = [
           flake-parts.flakeModules.partitions
         ];
+
+        flake = {
+          overlays = {
+            default =
+              final: prev:
+              let
+                inherit (prev)
+                  emacsPackagesFor
+                  ;
+
+                crane-lib = (crane.mkLib prev.pkgs);
+
+                buildCargoPackage =
+                  (crane-lib.overrideToolchain prev.pkgs.rust-bin.stable.latest.default)
+                  .buildPackage;
+
+                package =
+                  {
+                    buildCargoPackage,
+                    cleanCargoSource,
+                    lib,
+                    pkgs,
+                    stdenv,
+                    melpaBuild,
+                    projectRoot,
+                    writeText,
+                    ...
+                  }:
+                  let
+                    inherit (lib)
+                      importTOML
+                      licenses
+                      maintainers
+                      ;
+
+                    ext =
+                      stdenv.hostPlatform.extensions.sharedLibrary;
+
+                    meta = {
+                      description = "jieba-rs for GNU Emacs";
+                      homepage = "https://codeberg.org/bingshan/emacs-jieba-rs";
+                      license = licenses.gpl3Plus;
+                      maintainers = with maintainers; [ brsvh ];
+                    };
+
+                    cargoFile = projectRoot + /Cargo.toml;
+
+                    version = (importTOML cargoFile).package.version;
+
+                    module = buildCargoPackage {
+                      inherit
+                        version
+                        ;
+
+                      cargoExtraArgs = "--lib";
+                      doCheck = true;
+                      pname = "emacs-jieba-rs-module";
+                      src = cleanCargoSource projectRoot;
+                    };
+
+                    src = projectRoot + /lisp;
+                  in
+                  melpaBuild {
+                    inherit
+                      meta
+                      src
+                      version
+                      ;
+
+                    pname = "jieba-rs";
+
+                    preBuild = ''
+                      install -m 755 ${module}/lib/libjieba_rs_module${ext} jieba-rs-module${ext}
+                    '';
+
+                    files = ''(:defaults "jieba-rs-module${ext}")'';
+
+                    passthru = {
+                      inherit
+                        module
+                        ;
+                    };
+                  };
+
+                scope = finalAttrs: prevAttrs: {
+                  jieba-rs = finalAttrs.callPackage package {
+                    inherit (crane-lib)
+                      cleanCargoSource
+                      ;
+
+                    inherit
+                      buildCargoPackage
+                      projectRoot
+                      ;
+                  };
+                };
+              in
+              (rust-overlay.overlays.default final prev)
+              // {
+                emacsPackagesFor =
+                  emacs:
+                  (emacsPackagesFor emacs).overrideScope scope;
+              };
+          };
+        };
 
         partitionedAttrs = {
           devShells = "tools";
@@ -80,22 +194,14 @@
           {
             lib,
             pkgs,
-            projectRoot,
             system,
             ...
           }:
           let
             inherit (lib)
               foldl'
-              importTOML
               versions
               ;
-
-            inherit (pkgs)
-              writeShellApplication
-              ;
-
-            crane-lib = (crane.mkLib pkgs);
           in
           {
             _module = {
@@ -107,61 +213,67 @@
 
                   overlays = [
                     rust-overlay.overlays.default
+                    self.overlays.default
                   ];
                 };
-
-                projectRoot = ./.;
               };
             };
 
             packages =
-              let
-                inherit
-                  (crane-lib.overrideToolchain pkgs.rust-bin.stable.latest.default)
-                  buildPackage
-                  ;
-
-                emacs-jieba-rs =
+              foldl'
+                (
+                  acc: base:
                   let
-                    src = projectRoot;
-                    cargoFile = projectRoot + /Cargo.toml;
-                    version = (importTOML cargoFile).package.version;
-                  in
-                  buildPackage {
-                    inherit
-                      src
-                      version
+                    inherit (pkgs)
+                      emacsPackagesFor
+                      writeShellApplication
                       ;
 
-                    pname = "emacs-jieba-rs";
-                    cargoExtraArgs = "--lib";
-                    doCheck = true;
-                  };
+                    version = "${versions.major base.version}";
 
-                buildTests =
-                  emacs:
-                  writeShellApplication {
-                    name = "emacs${versions.major emacs.version}-jieba-rs-tests";
-
-                    runtimeInputs = [
-                      emacs
-                    ];
-
-                    text = ''
-                      emacs --batch \
-                        --eval "(module-load \"${emacs-jieba-rs}/lib/libemacs_jieba_rs.so\")" \
-                        -l "${projectRoot + /tests/jieba-rs-tests.el}" \
-                        -f ert-run-tests-batch-and-exit
-                    '';
-                  };
-              in
-              (foldl'
-                (
-                  acc: pkg:
+                    emacs =
+                      (emacsPackagesFor base).emacsWithPackages
+                        (
+                          epkgs: with epkgs; [
+                            jieba-rs
+                          ]
+                        );
+                  in
                   acc
                   // {
-                    "emacs${versions.major pkg.version}-jieba-rs-tests" =
-                      buildTests pkg;
+                    "emacs${version}-with-jieba-rs" =
+                      writeShellApplication
+                        {
+                          name = "emacs${version}-with-jieba-rs";
+
+                          runtimeInputs = [
+                            emacs
+                          ];
+
+                          text = ''
+                            exec emacs --init-directory "$(mktemp -d)" "$@"
+                          '';
+                        };
+
+                    "emacs${version}-run-jieba-rs-tests" =
+                      writeShellApplication
+                        {
+                          name = "emacs${version}-run-jieba-rs-tests";
+
+                          runtimeInputs = [
+                            emacs
+                          ];
+
+                          text = ''
+                            initdir="$(mktemp --tmpdir -d emacs-jieba-rs-test-XXXXXX)"
+                            trap 'rm -rf "$initdir"' EXIT
+
+                            emacs --batch \
+                              --init-directory "$initdir" \
+                              -l "${projectRoot + /tests/jieba-rs-tests.el}" \
+                              -f ert-run-tests-batch-and-exit
+                          '';
+                        };
                   }
                 )
                 { }
@@ -171,13 +283,7 @@
                     emacs30
                     emacs31
                   ]
-                )
-              )
-              // {
-                inherit
-                  emacs-jieba-rs
-                  ;
-              };
+                );
           };
 
         systems = [

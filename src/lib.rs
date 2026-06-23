@@ -1,15 +1,18 @@
 // Copyright (C) 2026 Bingshan Chang <chang@bingshan.org>
 
-// emacs-jieba-rs is free software: you can redistribute it and/or modify it under the terms of the
-// GNU General Public License as published by the Free Software Foundation, either version 3 of the
+// emacs-jieba-rs is free software: you can redistribute it and/or
+// modify it under the terms of the GNU General Public License as
+// published by the Free Software Foundation, either version 3 of the
 // License, or (at your option) any later version.
 
-// emacs-jieba-rs is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
-// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
-// the GNU General Public License for more details.
+// emacs-jieba-rs is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along with emacs-jieba-rs.  If
-// not, see <https://www.gnu.org/licenses/>.
+// You should have received a copy of the GNU General Public License
+// along with emacs-jieba-rs.  If not, see
+// <https://www.gnu.org/licenses/>.
 
 use std::sync::LazyLock;
 
@@ -25,12 +28,15 @@ static JIEBA: LazyLock<Jieba> = LazyLock::new(Jieba::new);
 /// Attempt to cut the sentence most accurately.  Suitable for text
 /// analysis.
 ///
-/// When HMM is nil, disable new word discovery; when t, enable
-/// it.
+/// When HMM is nil, disable new word discovery; when t, enable it.
 ///
 /// Return a vector of word strings.
 #[defun]
-fn segment<'a>(env: &'a Env, text: String, hmm: Value<'a>) -> Result<Vector<'a>> {
+fn segment<'a>(
+    env: &'a Env,
+    text: String,
+    hmm: Value<'a>,
+) -> Result<Vector<'a>> {
     let words = JIEBA.cut(&text, hmm.is_not_nil());
     let len = words.len();
     let vec = env.make_vector(len, ())?;
@@ -67,7 +73,11 @@ fn segment_all(env: &Env, text: String) -> Result<Vector<'_>> {
 ///
 /// Return a vector of word strings.
 #[defun]
-fn segment_search<'a>(env: &'a Env, text: String, hmm: Value<'a>) -> Result<Vector<'a>> {
+fn segment_search<'a>(
+    env: &'a Env,
+    text: String,
+    hmm: Value<'a>,
+) -> Result<Vector<'a>> {
     let words = JIEBA.cut_for_search(&text, hmm.is_not_nil());
     let len = words.len();
     let vec = env.make_vector(len, ())?;
@@ -84,7 +94,11 @@ fn segment_search<'a>(env: &'a Env, text: String, hmm: Value<'a>) -> Result<Vect
 /// Return a vector of plists, each containing :start, :end, :word,
 /// and :category.
 #[defun]
-fn segment_tag<'a>(env: &'a Env, text: String, hmm: Value<'a>) -> Result<Vector<'a>> {
+fn segment_tag<'a>(
+    env: &'a Env,
+    text: String,
+    hmm: Value<'a>,
+) -> Result<Vector<'a>> {
     let tags = JIEBA.tag(&text, hmm.is_not_nil());
     let len = tags.len();
     let vec = env.make_vector(len, ())?;
@@ -120,7 +134,10 @@ mod tests {
             .iter()
             .map(|t| t.word.as_ref())
             .collect();
-        assert_eq!(words, vec!["我们", "中", "出", "了", "一个", "叛徒"]);
+        assert_eq!(
+            words,
+            vec!["我们", "中", "出", "了", "一个", "叛徒"]
+        );
     }
 
     #[test]

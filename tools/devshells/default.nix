@@ -85,7 +85,7 @@ in
         "*.rs" = {
           indent_size = 4;
           indent_style = "space";
-          max_line_length = 100;
+          max_line_length = 70;
         };
       };
 
@@ -176,7 +176,7 @@ in
             command = [
               (getExe rustfmt)
               "--config"
-              "edition=2024,max_width=100"
+              "edition=2024,max_width=70"
               "$FILE"
             ];
           };
@@ -343,7 +343,8 @@ in
             ];
 
             options = [
-              "--edition=2024"
+              "--config"
+              "edition=2024,max_width=70"
             ];
           };
         };

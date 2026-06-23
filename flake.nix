@@ -56,13 +56,13 @@
         ];
 
         partitionedAttrs = {
-          devShells = "build-aux";
-          formatter = "build-aux";
+          devShells = "tools";
+          formatter = "tools";
         };
 
         partitions = {
-          build-aux = {
-            extraInputsFlake = ./build-aux;
+          tools = {
+            extraInputsFlake = ./tools;
 
             module =
               {
@@ -70,7 +70,7 @@
               }:
               {
                 imports = [
-                  ./build-aux/flake-module.nix
+                  ./tools/flake-module.nix
                 ];
               };
           };

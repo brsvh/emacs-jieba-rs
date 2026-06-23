@@ -182,5 +182,27 @@
     (jieba-rs-mode -1)
     (should-not jieba-rs-mode)))
 
+(ert-deftest jieba-rs-tests-boundaries-toggle ()
+  "Toggle boundaries on and off correctly."
+  (with-temp-buffer
+    (insert "我们中出了一个叛徒")
+    (jieba-rs-mode 1)
+    (should-not jieba-rs-boundaries-overlays)
+    (jieba-rs-toggle-boundaries)
+    (should jieba-rs-boundaries-overlays)
+    (jieba-rs-toggle-boundaries)
+    (should-not jieba-rs-boundaries-overlays)))
+
+(ert-deftest jieba-rs-tests-boundaries-overlays ()
+  "Boundary overlays are created and cleared on edit."
+  (with-temp-buffer
+    (insert "我们中出了一个叛徒")
+    (jieba-rs-mode 1)
+    (jieba-rs-toggle-boundaries)
+    (should (>= (length jieba-rs-boundaries-overlays) 1))
+    (goto-char (point-min))
+    (insert "X")
+    (should-not jieba-rs-boundaries-overlays)))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

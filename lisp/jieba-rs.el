@@ -32,9 +32,10 @@
 ;;
 ;; Usage:
 ;;
-;;   M-x jieba-rs-mode        Toggle the mode in current buffer.
-;;   M-x jieba-rs-segment-region Segment the active region.
-;;   M-x jieba-rs-segment-buffer Segment the entire buffer.
+;;   M-x jieba-rs-mode             Toggle the mode in current buffer.
+;;   M-x jieba-rs-segment-region      Segment the active region.
+;;   M-x jieba-rs-segment-buffer      Segment the entire buffer.
+;;   M-x jieba-rs-toggle-boundaries   Toggle word boundary display.
 ;;
 ;; Customization:
 ;;
@@ -128,6 +129,54 @@ In text terminals this falls back to the echo area."
            (fboundp 'tooltip-show))
       (tooltip-show text)
     (message "%s" text)))
+
+(defface jieba-rs-boundary-face
+  '((t :inherit shadow))
+  "Face for word boundary separators."
+  :group 'jieba-rs)
+
+(defvar-local jieba-rs-boundaries-overlays nil
+  "List of word boundary overlays in the current buffer.")
+
+(defun jieba-rs--clear-boundaries ()
+  "Remove all boundary overlays and the change hook."
+  (mapc #'delete-overlay jieba-rs-boundaries-overlays)
+  (remove-hook 'after-change-functions
+               #'jieba-rs--boundaries-after-change t)
+  (setq jieba-rs-boundaries-overlays nil))
+
+(defun jieba-rs--boundaries-after-change (&rest _)
+  "Clear boundaries after any buffer change."
+  (jieba-rs--clear-boundaries))
+
+(defun jieba-rs--show-boundaries ()
+  "Show word boundaries in the current buffer."
+  (let ((text (buffer-substring-no-properties
+               (point-min) (point-max)))
+        (pos (point-min)))
+    (dolist (word (append (jieba-rs-module-segment
+                           text jieba-rs-hmm)
+                          nil))
+      (setq pos (+ pos (length word)))
+      (when (< pos (point-max))
+        (let ((ov (make-overlay pos pos)))
+          (overlay-put ov 'after-string
+                       (propertize "│"
+                                   'face
+                                   'jieba-rs-boundary-face))
+          (push ov jieba-rs-boundaries-overlays)))))
+  (add-hook 'after-change-functions
+            #'jieba-rs--boundaries-after-change nil t))
+
+;;;###autoload
+(defun jieba-rs-toggle-boundaries ()
+  "Toggle display of word segmentation boundaries."
+  (interactive)
+  (unless (featurep 'jieba-rs-module)
+    (user-error "Jieba native module not loaded"))
+  (if jieba-rs-boundaries-overlays
+      (jieba-rs--clear-boundaries)
+    (jieba-rs--show-boundaries)))
 
 ;;;###autoload
 (defun jieba-rs-segment-region (start end)

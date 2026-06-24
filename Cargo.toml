@@ -7,7 +7,7 @@ version = "0.1.0"
 
 [dependencies]
 emacs = "0.21"
-jieba-rs = "0.10"
+jieba-rs = { version = "0.10", features = ["textrank"] }
 
 [lib]
 crate-type = ["cdylib"]

@@ -17,7 +17,7 @@
 use std::sync::{LazyLock, Mutex};
 
 use emacs::{Env, IntoLisp, Result, Value, Vector, defun};
-use jieba_rs::Jieba;
+use jieba_rs::{Jieba, KeywordExtract, TextRank};
 
 emacs::plugin_is_GPL_compatible!();
 
@@ -165,6 +165,40 @@ fn add_word(
     };
     let mut jieba = JIEBA.lock().unwrap();
     Ok(jieba.add_word(&word, freq_opt, tag_opt.as_deref()))
+}
+
+/// Extract top-K keywords from TEXT using TextRank.
+///
+/// Return a vector of plists with :keyword and :weight.
+#[defun]
+fn extract_keywords<'a>(
+    env: &'a Env,
+    text: String,
+    top_k: Value<'a>,
+) -> Result<Vector<'a>> {
+    let k: usize = if top_k.is_not_nil() {
+        top_k.into_rust()?
+    } else {
+        10
+    };
+    let extractor = TextRank::default();
+    let keywords = extractor.extract_keywords(
+        &JIEBA.lock().unwrap(),
+        &text,
+        k,
+        vec![],
+    );
+    let vec = env.make_vector(keywords.len(), ())?;
+    for (i, kw) in keywords.iter().enumerate() {
+        let plist = env.list(&[
+            env.intern(":keyword")?,
+            kw.keyword.clone().into_lisp(env)?,
+            env.intern(":weight")?,
+            kw.weight.into_lisp(env)?,
+        ])?;
+        vec.set(i, plist)?;
+    }
+    Ok(vec)
 }
 
 #[emacs::module(name = "jieba-rs-module")]

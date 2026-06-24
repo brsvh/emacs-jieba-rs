@@ -320,5 +320,23 @@
     (jieba-rs-backward-sentence)
     (should (>= (point) 4))))
 
+(ert-deftest jieba-rs-tests-extract-keywords ()
+  "TextRank returns keyword plists with :keyword and :weight."
+  (jieba-rs-mode 1)
+  (let ((kws (jieba-rs-module-extract-keywords
+              "南京市长江大桥真的很好玩" 5)))
+    (should (vectorp kws))
+    (should (>= (length kws) 1))
+    (let ((first (aref kws 0)))
+      (should (plist-member first :keyword))
+      (should (plist-member first :weight)))))
+
+(ert-deftest jieba-rs-tests-extract-keywords-empty ()
+  "TextRank on empty text returns empty vector."
+  (jieba-rs-mode 1)
+  (let ((kws (jieba-rs-module-extract-keywords "" 5)))
+    (should (vectorp kws))
+    (should (= (length kws) 0))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

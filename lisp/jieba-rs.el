@@ -82,6 +82,8 @@
 
 ;;; Code:
 
+(require 'cl-lib)
+
 (declare-function jieba-rs-module-segment
                   "ext:jieba-rs-module" (text hmm))
 (declare-function jieba-rs-module-segment-all
@@ -151,7 +153,7 @@ With prefix arg PERSIST, append the entry to the user dict file."
   (let ((f (jieba-rs-module-add-word word freq tag)))
     (when persist
       (unless jieba-rs-user-dict
-        (user-error "jieba-rs-user-dict is nil; cannot persist"))
+        (user-error "Cannot persist: jieba-rs-user-dict is nil"))
       (let ((dir (file-name-directory
                   (expand-file-name jieba-rs-user-dict))))
         (unless (file-exists-p dir)
@@ -258,16 +260,44 @@ In text terminals this falls back to the echo area."
 (defvar-local jieba-rs-boundaries-overlays nil
   "List of word boundary overlays in the current buffer.")
 
+(defvar-local jieba-rs--boundaries-timer nil
+  "Idle timer or `post-command-hook' for boundary refresh.")
+
 (defun jieba-rs--clear-boundaries ()
-  "Remove all boundary overlays and the change hook."
+  "Remove boundary overlays and cancel scheduled refresh."
   (mapc #'delete-overlay jieba-rs-boundaries-overlays)
   (remove-hook 'after-change-functions
                #'jieba-rs--boundaries-after-change t)
-  (setq jieba-rs-boundaries-overlays nil))
+  (when jieba-rs--boundaries-timer
+    (cancel-timer jieba-rs--boundaries-timer))
+  (remove-hook 'post-command-hook
+               #'jieba-rs--refresh-boundaries t)
+  (setq jieba-rs-boundaries-overlays nil
+        jieba-rs--boundaries-timer nil))
 
 (defun jieba-rs--boundaries-after-change (&rest _)
-  "Clear boundaries after any buffer change."
-  (jieba-rs--clear-boundaries))
+  "Clear boundaries and schedule a visible-window refresh."
+  (jieba-rs--clear-boundaries)
+  (add-hook 'after-change-functions
+            #'jieba-rs--boundaries-after-change nil t)
+  (if (> (buffer-size) 10000)
+      (let ((buf (current-buffer)))
+        (setq jieba-rs--boundaries-timer
+              (run-with-idle-timer
+               0.15 nil
+               (lambda ()
+                 (when (buffer-live-p buf)
+                   (with-current-buffer buf
+                     (jieba-rs--refresh-boundaries)))))))
+    (add-hook 'post-command-hook
+              #'jieba-rs--refresh-boundaries nil t)))
+
+(defun jieba-rs--refresh-boundaries ()
+  "Rebuild boundary overlays for the visible window."
+  (remove-hook 'post-command-hook
+               #'jieba-rs--refresh-boundaries t)
+  (setq jieba-rs--boundaries-timer nil)
+  (jieba-rs--show-boundaries))
 
 (defun jieba-rs--show-boundaries ()
   "Show word boundaries in the current buffer."
@@ -276,14 +306,21 @@ In text terminals this falls back to the echo area."
                 (goto-char (point-max))
                 (skip-chars-backward " \t\n\r\f　")
                 (point)))
+         (win-start (window-start))
+         (win-end (window-end))
          (text (jieba-rs--normalize-text beg end))
          (pos beg))
+    (unless (and win-end (> win-end win-start))
+      (setq win-start beg
+            win-end end))
     (dolist (word (append (jieba-rs-module-segment
                            text jieba-rs-hmm)
                           nil))
       (setq pos (+ pos (length word)))
       (when (and (not (string-blank-p word))
-                 (< pos end))
+                 (< pos end)
+                 (>= pos win-start)
+                 (< pos win-end))
         (let ((ov (make-overlay pos pos)))
           (overlay-put ov 'priority 0)
           (overlay-put ov 'after-string
@@ -326,16 +363,44 @@ In text terminals this falls back to the echo area."
 (defvar-local jieba-rs-tag-overlays nil
   "List of POS tag overlays in the current buffer.")
 
+(defvar-local jieba-rs--tags-timer nil
+  "Idle timer or `post-command-hook' for tag refresh.")
+
 (defun jieba-rs--clear-tags ()
-  "Remove all tag overlays and the change hook."
+  "Remove tag overlays and cancel scheduled refresh."
   (mapc #'delete-overlay jieba-rs-tag-overlays)
   (remove-hook 'after-change-functions
                #'jieba-rs--tags-after-change t)
-  (setq jieba-rs-tag-overlays nil))
+  (when jieba-rs--tags-timer
+    (cancel-timer jieba-rs--tags-timer))
+  (remove-hook 'post-command-hook
+               #'jieba-rs--refresh-tags t)
+  (setq jieba-rs-tag-overlays nil
+        jieba-rs--tags-timer nil))
 
 (defun jieba-rs--tags-after-change (&rest _)
-  "Clear tags after any buffer change."
-  (jieba-rs--clear-tags))
+  "Clear tags and schedule a visible-window refresh."
+  (jieba-rs--clear-tags)
+  (add-hook 'after-change-functions
+            #'jieba-rs--tags-after-change nil t)
+  (if (> (buffer-size) 10000)
+      (let ((buf (current-buffer)))
+        (setq jieba-rs--tags-timer
+              (run-with-idle-timer
+               0.15 nil
+               (lambda ()
+                 (when (buffer-live-p buf)
+                   (with-current-buffer buf
+                     (jieba-rs--refresh-tags)))))))
+    (add-hook 'post-command-hook
+              #'jieba-rs--refresh-tags nil t)))
+
+(defun jieba-rs--refresh-tags ()
+  "Rebuild tag overlays for the visible window."
+  (remove-hook 'post-command-hook
+               #'jieba-rs--refresh-tags t)
+  (setq jieba-rs--tags-timer nil)
+  (jieba-rs--show-tags))
 
 (defun jieba-rs--show-tags ()
   "Show POS tags in the current buffer."
@@ -344,8 +409,13 @@ In text terminals this falls back to the echo area."
                 (goto-char (point-max))
                 (skip-chars-backward " \t\n\r\f　")
                 (point)))
+         (win-start (window-start))
+         (win-end (window-end))
          (text (jieba-rs--normalize-text beg end))
          (pos beg))
+    (unless (and win-end (> win-end win-start))
+      (setq win-start beg
+            win-end end))
     (dolist (tag (append (jieba-rs-module-segment-tag
                           text jieba-rs-hmm)
                          nil))
@@ -355,7 +425,9 @@ In text terminals this falls back to the echo area."
              (ud (or (cdr (assoc cat jieba-rs-tag-names))
                      cat)))
         (when (and (not (string-blank-p word))
-                   (< end-pos end))
+                   (< end-pos end)
+                   (>= end-pos win-start)
+                   (< end-pos win-end))
           (let ((ov (make-overlay end-pos end-pos)))
             (overlay-put ov 'priority 1)
             (overlay-put ov 'after-string

@@ -11,6 +11,10 @@
 /.envrc
 
 # emacs
+/lisp/jieba-rs-autoloads.el
+/lisp/jieba-rs-module.so
+/lisp/jieba-rs-pkg.el
+/lisp/*.elc
 .dir-locals.el
 
 # nix

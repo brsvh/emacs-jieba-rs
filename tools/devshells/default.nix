@@ -41,6 +41,7 @@ let
 
   formatters = with pkgs; [
     elisp-format
+    mbake
     mdformatWithPlugins
     nixfmt
     rustfmt
@@ -86,6 +87,11 @@ in
           indent_size = 4;
           indent_style = "space";
           max_line_length = 70;
+        };
+
+        "{Makefile,**.mk}" = {
+          indent_size = 4;
+          indent_style = "tab";
         };
       };
 
@@ -303,6 +309,26 @@ in
 
             includes = [
               "*.el"
+            ];
+          };
+
+          makefile = {
+            command = "mbake";
+
+            includes = [
+              "*.Makefile"
+              "*.makefile"
+              "*.mk"
+              "*/Makefile"
+              "*/makefile"
+              "Makefile"
+              "Makefile.*"
+              "makefile"
+              "makefile.*"
+            ];
+
+            options = [
+              "format"
             ];
           };
 

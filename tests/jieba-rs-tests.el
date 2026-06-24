@@ -324,7 +324,7 @@
   "TextRank returns keyword plists with :keyword and :weight."
   (jieba-rs-mode 1)
   (let ((kws (jieba-rs-module-extract-keywords
-              "南京市长江大桥真的很好玩" 5)))
+              "南京市长江大桥真的很好玩" 5 "textrank")))
     (should (vectorp kws))
     (should (>= (length kws) 1))
     (let ((first (aref kws 0)))
@@ -334,9 +334,20 @@
 (ert-deftest jieba-rs-tests-extract-keywords-empty ()
   "TextRank on empty text returns empty vector."
   (jieba-rs-mode 1)
-  (let ((kws (jieba-rs-module-extract-keywords "" 5)))
+  (let ((kws (jieba-rs-module-extract-keywords "" 5 "textrank")))
     (should (vectorp kws))
     (should (= (length kws) 0))))
+
+(ert-deftest jieba-rs-tests-extract-keywords-tfidf ()
+  "TF-IDF returns keyword plists with :keyword and :weight."
+  (jieba-rs-mode 1)
+  (let ((kws (jieba-rs-module-extract-keywords
+              "南京市长江大桥真的很好玩" 5 "tfidf")))
+    (should (vectorp kws))
+    (should (>= (length kws) 1))
+    (let ((first (aref kws 0)))
+      (should (plist-member first :keyword))
+      (should (plist-member first :weight)))))
 
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

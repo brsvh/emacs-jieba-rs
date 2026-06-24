@@ -204,5 +204,33 @@
     (insert "X")
     (should-not jieba-rs-boundaries-overlays)))
 
+(ert-deftest jieba-rs-tests-tags-toggle ()
+  "Toggle tags on and off correctly."
+  (with-temp-buffer
+    (insert "我是中国人")
+    (jieba-rs-mode 1)
+    (should-not jieba-rs-tag-overlays)
+    (jieba-rs-toggle-tags)
+    (should jieba-rs-tag-overlays)
+    (jieba-rs-toggle-tags)
+    (should-not jieba-rs-tag-overlays)))
+
+(ert-deftest jieba-rs-tests-tags-content ()
+  "Tag overlays show UD labels and clear on edit."
+  (with-temp-buffer
+    (insert "我是中国人")
+    (jieba-rs-mode 1)
+    (jieba-rs-toggle-tags)
+    (should (>= (length jieba-rs-tag-overlays) 1))
+    (let ((after-str (overlay-get
+                      (car jieba-rs-tag-overlays)
+                      'after-string)))
+      (should (string-match-p
+               "pron\\|verb\\|noun\\|propn\\|adj\\|adv"
+               after-str)))
+    (goto-char (point-min))
+    (insert "X")
+    (should-not jieba-rs-tag-overlays)))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

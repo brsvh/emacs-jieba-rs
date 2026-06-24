@@ -36,6 +36,7 @@
 ;;   M-x jieba-rs-segment-region      Segment the active region.
 ;;   M-x jieba-rs-segment-buffer      Segment the entire buffer.
 ;;   M-x jieba-rs-toggle-boundaries   Toggle word boundary display.
+;;   M-x jieba-rs-toggle-tags         Toggle POS tag display.
 ;;
 ;; Customization:
 ;;
@@ -86,6 +87,40 @@ scanning all possible cuts.
                  (const :tag "Full" jieba-rs-module-segment-all)
                  (const :tag "Search" jieba-rs-module-segment-search))
   :group 'jieba-rs)
+
+(defcustom jieba-rs-normalize-rules
+  '((t ("[\u0000-\u001f\u007f-\u009f\ufeff]"
+        . " ")
+       ("[\t\n\r\f　]"
+        . " ")))
+  "Normalization rules for text before overlay segmentation.
+Each replacement must be exactly one space so that the
+normalized text keeps the same length as the buffer text.
+Each element is (MODE . RULES) where MODE is a major-mode symbol
+or t for the default fallback.  RULES is a list of (REGEXP
+. REPLACEMENT) pairs applied in order with \
+`replace-regexp-in-string'."
+  :type '(repeat
+          (cons (choice (const t)
+                        (symbol :tag "Major mode"))
+                (repeat (cons (regexp :tag "Pattern")
+                              (string :tag "Replacement")))))
+  :group 'jieba-rs)
+
+(defun jieba-rs--normalize-text (beg end)
+  "Normalize text in region BEG..END for overlay segmentation.
+Respects `jieba-rs-normalize-rules' for the current major mode."
+  (let ((text (buffer-substring-no-properties beg end))
+        (rules (cdr (or (cl-find major-mode
+                                 jieba-rs-normalize-rules
+                                 :test #'derived-mode-p
+                                 :key #'car)
+                        (assq t
+                              jieba-rs-normalize-rules)))))
+    (dolist (rule rules)
+      (setq text (replace-regexp-in-string
+                  (car rule) (cdr rule) text)))
+    text))
 
 (defun jieba-rs--segment-function-arity (fn)
   "Return the number of arguments FN expects.
@@ -151,17 +186,23 @@ In text terminals this falls back to the echo area."
 
 (defun jieba-rs--show-boundaries ()
   "Show word boundaries in the current buffer."
-  (let ((text (buffer-substring-no-properties
-               (point-min) (point-max)))
-        (pos (point-min)))
+  (let* ((beg (point-min))
+         (end (save-excursion
+                (goto-char (point-max))
+                (skip-chars-backward " \t\n\r\f　")
+                (point)))
+         (text (jieba-rs--normalize-text beg end))
+         (pos beg))
     (dolist (word (append (jieba-rs-module-segment
                            text jieba-rs-hmm)
                           nil))
       (setq pos (+ pos (length word)))
-      (when (< pos (point-max))
+      (when (and (not (string-blank-p word))
+                 (< pos end))
         (let ((ov (make-overlay pos pos)))
+          (overlay-put ov 'priority 0)
           (overlay-put ov 'after-string
-                       (propertize "│"
+                       (propertize " │ "
                                    'face
                                    'jieba-rs-boundary-face))
           (push ov jieba-rs-boundaries-overlays)))))
@@ -177,6 +218,80 @@ In text terminals this falls back to the echo area."
   (if jieba-rs-boundaries-overlays
       (jieba-rs--clear-boundaries)
     (jieba-rs--show-boundaries)))
+
+(defconst jieba-rs-tag-names
+  '(("n" . "noun") ("nr" . "propn") ("ns" . "propn")
+    ("nt" . "propn") ("nz" . "propn") ("v" . "verb")
+    ("vd" . "verb") ("vn" . "verb") ("a" . "adj")
+    ("ad" . "adj") ("an" . "adj") ("d" . "adv")
+    ("r" . "pron") ("p" . "adp") ("c" . "cconj")
+    ("u" . "part") ("m" . "num") ("q" . "num")
+    ("f" . "noun") ("t" . "noun") ("s" . "noun")
+    ("z" . "adj") ("w" . "punct") ("x" . "sym")
+    ("b" . "noun") ("e" . "intj") ("y" . "part")
+    ("o" . "intj") ("h" . "noun") ("k" . "noun")
+    ("i" . "noun") ("l" . "noun") ("j" . "noun"))
+  "Alist mapping ICTCLAS POS codes to Universal Dependencies tags.")
+
+(defface jieba-rs-tag-face
+  '((t :inherit font-lock-keyword-face :slant italic))
+  "Face for POS tag annotations."
+  :group 'jieba-rs)
+
+(defvar-local jieba-rs-tag-overlays nil
+  "List of POS tag overlays in the current buffer.")
+
+(defun jieba-rs--clear-tags ()
+  "Remove all tag overlays and the change hook."
+  (mapc #'delete-overlay jieba-rs-tag-overlays)
+  (remove-hook 'after-change-functions
+               #'jieba-rs--tags-after-change t)
+  (setq jieba-rs-tag-overlays nil))
+
+(defun jieba-rs--tags-after-change (&rest _)
+  "Clear tags after any buffer change."
+  (jieba-rs--clear-tags))
+
+(defun jieba-rs--show-tags ()
+  "Show POS tags in the current buffer."
+  (let* ((beg (point-min))
+         (end (save-excursion
+                (goto-char (point-max))
+                (skip-chars-backward " \t\n\r\f　")
+                (point)))
+         (text (jieba-rs--normalize-text beg end))
+         (pos beg))
+    (dolist (tag (append (jieba-rs-module-segment-tag
+                          text jieba-rs-hmm)
+                         nil))
+      (let* ((word (plist-get tag :word))
+             (cat (plist-get tag :category))
+             (end-pos (+ pos (length word)))
+             (ud (or (cdr (assoc cat jieba-rs-tag-names))
+                     cat)))
+        (when (and (not (string-blank-p word))
+                   (< end-pos end))
+          (let ((ov (make-overlay end-pos end-pos)))
+            (overlay-put ov 'priority 1)
+            (overlay-put ov 'after-string
+                         (propertize ud
+                                     'display '(raise -0.3)
+                                     'face
+                                     'jieba-rs-tag-face))
+            (push ov jieba-rs-tag-overlays)))
+        (setq pos end-pos))))
+  (add-hook 'after-change-functions
+            #'jieba-rs--tags-after-change nil t))
+
+;;;###autoload
+(defun jieba-rs-toggle-tags ()
+  "Toggle display of part-of-speech tags."
+  (interactive)
+  (unless (featurep 'jieba-rs-module)
+    (user-error "Jieba native module not loaded"))
+  (if jieba-rs-tag-overlays
+      (jieba-rs--clear-tags)
+    (jieba-rs--show-tags)))
 
 ;;;###autoload
 (defun jieba-rs-segment-region (start end)

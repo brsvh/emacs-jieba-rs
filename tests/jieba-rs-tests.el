@@ -232,5 +232,49 @@
     (insert "X")
     (should-not jieba-rs-tag-overlays)))
 
+(ert-deftest jieba-rs-tests-user-dict ()
+  "Loading a user dictionary changes segmentation."
+  (let ((dict-file (make-temp-file "jieba-rs-test-dict-")))
+    (unwind-protect
+        (progn
+          (with-temp-buffer
+            (insert "赛博朋克 100 nz\n")
+            (write-region nil nil dict-file nil 'silent))
+          (let ((jieba-rs-user-dict dict-file))
+            (jieba-rs-mode 1)
+            (let ((jieba-rs-hmm nil)
+                  (words (jieba-rs-module-segment
+                          "我爱赛博朋克" nil)))
+              (should (seq-contains-p words
+                                      "赛博朋克"))
+              (should (= (length words) 3)))))
+      (delete-file dict-file))))
+
+(ert-deftest jieba-rs-tests-user-dict-nil ()
+  "Without a user dictionary, default segmentation applies."
+  (jieba-rs-mode 1)
+  (let ((jieba-rs-hmm nil)
+        (words (jieba-rs-module-segment "我爱赛博朋克" nil)))
+    (should (>= (length words) 3))))
+
+(ert-deftest jieba-rs-tests-add-word ()
+  "Adding a word changes segmentation and persists to file."
+  (let ((dict-file (make-temp-file "jieba-rs-test-dict-")))
+    (unwind-protect
+        (let ((jieba-rs-user-dict dict-file)
+              (jieba-rs-hmm nil))
+          (jieba-rs-mode 1)
+          (jieba-rs-add-word "赛博朋克" 100 "nz" t)
+          (let ((words (jieba-rs-module-segment
+                        "我爱赛博朋克" nil)))
+            (should (seq-contains-p words "赛博朋克"))
+            (should (= (length words) 3)))
+          (with-temp-buffer
+            (insert-file-contents dict-file)
+            (should (string-match-p
+                     "赛博朋克"
+                     (buffer-string)))))
+      (delete-file dict-file))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

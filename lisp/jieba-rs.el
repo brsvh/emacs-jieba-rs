@@ -27,21 +27,58 @@
 
 ;; Jieba Chinese word segmentation for Emacs.
 ;;
-;; Provides `jieba-rs-mode', a minor mode with commands to segment
+;; Provides ~jieba-rs-mode~, a minor mode with commands to segment
 ;; Chinese text using the jieba-rs dynamic module.
 ;;
-;; Usage:
+;; * Usage
 ;;
-;;   M-x jieba-rs-mode             Toggle the mode in current buffer.
-;;   M-x jieba-rs-segment-region      Segment the active region.
-;;   M-x jieba-rs-segment-buffer      Segment the entire buffer.
-;;   M-x jieba-rs-toggle-boundaries   Toggle word boundary display.
-;;   M-x jieba-rs-toggle-tags         Toggle POS tag display.
+;; Toggle the mode in current buffer.
 ;;
-;; Customization:
+;; #+begin_src emacs-lisp
+;;   M-x jieba-rs-mode
+;; #+end_src
 ;;
-;;   `jieba-rs-hmm'              Enable HMM-based new word discovery.
-;;   `jieba-rs-segment-function' Choose the segmentation algorithm.
+;; Segment the active region.
+;;
+;; #+begin_src emacs-lisp
+;;   M-x jieba-rs-segment-region
+;; #+end_src
+;;
+;; Segment the entire buffer.
+;;
+;; #+begin_src emacs-lisp
+;;   M-x jieba-rs-segment-buffer
+;; #+end_src
+;;
+;; Toggle word boundary display.
+;;
+;; #+begin_src emacs-lisp
+;;   M-x jieba-rs-toggle-boundaries
+;; #+end_src
+;;
+;; Toggle POS tag display.
+;;
+;; #+begin_src emacs-lisp
+;;   M-x jieba-rs-toggle-tags
+;; #+end_src
+;;
+;; * Customization
+;;
+;; ** ~jieba-rs-hmm~
+;;
+;; Enable HMM-based new word discovery.
+;;
+;; ** ~jieba-rs-segment-function~
+;;
+;; Choose the segmentation algorithm.
+;;
+;; ** ~jieba-rs-normalize-rules~
+;;
+;; Per-mode normalization rules for overlay positioning.
+;;
+;; ** ~jieba-rs-user-dict~
+;;
+;; Path to a user dictionary file, or nil to disable.
 
 ;;; Code:
 
@@ -53,6 +90,10 @@
                   "ext:jieba-rs-module" (text hmm))
 (declare-function jieba-rs-module-segment-tag
                   "ext:jieba-rs-module" (text hmm))
+(declare-function jieba-rs-module-load-user-dict
+                  "ext:jieba-rs-module" (path))
+(declare-function jieba-rs-module-add-word
+                  "ext:jieba-rs-module" (word freq tag))
 
 (defgroup jieba-rs nil
   "Jieba Chinese word segmentation."
@@ -76,6 +117,50 @@
   "When non-nil, enable HMM-based new word discovery."
   :type 'boolean
   :group 'jieba-rs)
+
+(defcustom jieba-rs-user-dict
+  (expand-file-name "jieba-rs/user.dict" user-emacs-directory)
+  "Path to a user dictionary file, or nil to disable."
+  :type '(choice (const :tag "None" nil)
+                 (file :tag "Dictionary file"))
+  :group 'jieba-rs)
+
+(defun jieba-rs--load-user-dict ()
+  "Load the user dictionary if `jieba-rs-user-dict' is set."
+  (when (and jieba-rs-user-dict
+             (file-exists-p jieba-rs-user-dict))
+    (condition-case err
+        (jieba-rs-module-load-user-dict
+         (expand-file-name jieba-rs-user-dict))
+      (error
+       (display-warning 'jieba-rs
+                        (format "Failed to load user dict: %s"
+                                (error-message-string err))
+                        :warning)))))
+
+(defun jieba-rs-add-word (word &optional freq tag persist)
+  "Add WORD to the Jieba dictionary.
+FREQ is the word frequency; nil triggers auto-suggestion.
+TAG is an optional POS tag.
+With prefix arg PERSIST, append the entry to the user dict file."
+  (interactive
+   (list (read-string "Word: ")
+         nil nil current-prefix-arg))
+  (unless (featurep 'jieba-rs-module)
+    (user-error "Jieba native module not loaded"))
+  (let ((f (jieba-rs-module-add-word word freq tag)))
+    (when persist
+      (unless jieba-rs-user-dict
+        (user-error "jieba-rs-user-dict is nil; cannot persist"))
+      (let ((dir (file-name-directory
+                  (expand-file-name jieba-rs-user-dict))))
+        (unless (file-exists-p dir)
+          (make-directory dir t)))
+      (with-temp-buffer
+        (insert (format "%s %d %s\n" word f (or tag "")))
+        (write-region nil nil (expand-file-name jieba-rs-user-dict)
+                      'append 'quiet)))
+    f))
 
 (defcustom jieba-rs-segment-function 'jieba-rs-module-segment
   "Segmentation function to use.
@@ -340,7 +425,9 @@ to choose the segmentation algorithm.
   :group 'jieba-rs
   (when jieba-rs-mode
     (condition-case err
-        (jieba-rs--load-module)
+        (progn
+          (jieba-rs--load-module)
+          (jieba-rs--load-user-dict))
       (error
        (display-warning 'jieba-rs
                         (format "Failed to load module: %s"

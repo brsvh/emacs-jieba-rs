@@ -252,6 +252,66 @@ In text terminals this falls back to the echo area."
       (tooltip-show text)
     (message "%s" text)))
 
+(defun jieba-rs-forward-word (&optional arg)
+  "Move point forward ARG Chinese words."
+  (interactive "^p")
+  (unless (featurep 'jieba-rs-module)
+    (user-error "Jieba native module not loaded"))
+  (let ((n (or arg 1)))
+    (if (< n 0)
+        (jieba-rs-backward-word (- n))
+      (dotimes (_i n)
+        (let* ((orig (point))
+               ;; Always use precise mode for contiguous
+               ;; word boundaries.
+               (words (jieba-rs-module-segment
+                       (buffer-substring-no-properties
+                        (point) (point-max))
+                       jieba-rs-hmm))
+               (pos (point)))
+          (catch 'done
+            (dolist (word (append words nil))
+              (setq pos (+ pos (length word)))
+              (unless (string-blank-p word)
+                (goto-char pos)
+                (throw 'done t))))
+          (when (= (point) orig)
+            (goto-char (point-max))))))))
+
+(defun jieba-rs-backward-word (&optional arg)
+  "Move point backward ARG Chinese words."
+  (interactive "^p")
+  (unless (featurep 'jieba-rs-module)
+    (user-error "Jieba native module not loaded"))
+  (let ((n (or arg 1)))
+    (if (< n 0)
+        (jieba-rs-forward-word (- n))
+      (dotimes (_i n)
+        (let ((words (append (jieba-rs-module-segment
+                              (buffer-substring-no-properties
+                               (point-min) (point))
+                              jieba-rs-hmm)
+                             nil))
+              (target (point-min))
+              (pos (point-min)))
+          (dolist (word words)
+            (let ((end (+ pos (length word))))
+              (unless (string-blank-p word)
+                (when (< pos (point))
+                  (setq target pos)))
+              (setq pos end)))
+          (goto-char target))))))
+
+(defun jieba-rs-forward-sentence (&optional arg)
+  "Move point forward ARG Chinese sentences."
+  (interactive "^p")
+  (re-search-forward "[。！？\n]+" nil t (or arg 1)))
+
+(defun jieba-rs-backward-sentence (&optional arg)
+  "Move point backward ARG Chinese sentences."
+  (interactive "^p")
+  (re-search-backward "[。！？\n]+" nil t (or arg 1)))
+
 (defface jieba-rs-boundary-face
   '((t :inherit shadow))
   "Face for word boundary separators."
@@ -480,7 +540,16 @@ Display results in a buffer."
     (jieba-rs--show-buffer words title)))
 
 (defvar jieba-rs-mode-map
-  (make-sparse-keymap)
+  (let ((map (make-sparse-keymap)))
+    (keymap-set map "<remap> <forward-word>"
+                #'jieba-rs-forward-word)
+    (keymap-set map "<remap> <backward-word>"
+                #'jieba-rs-backward-word)
+    (keymap-set map "<remap> <forward-sentence>"
+                #'jieba-rs-forward-sentence)
+    (keymap-set map "<remap> <backward-sentence>"
+                #'jieba-rs-backward-sentence)
+    map)
   "Keymap for `jieba-rs-mode'.")
 
 ;;;###autoload

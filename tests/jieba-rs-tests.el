@@ -276,5 +276,49 @@
                      (buffer-string)))))
       (delete-file dict-file))))
 
+(ert-deftest jieba-rs-tests-forward-word ()
+  "Moving forward by Chinese word."
+  (with-temp-buffer
+    (insert "我们中出了一个叛徒")
+    (jieba-rs-mode 1)
+    (let ((jieba-rs-hmm nil))
+      (goto-char (point-min))
+      (jieba-rs-forward-word)
+      (should (= (point) 3))
+      (jieba-rs-forward-word)
+      (should (= (point) 4))
+      (jieba-rs-forward-word 3)
+      (should (= (point) 8)))))
+
+(ert-deftest jieba-rs-tests-backward-word ()
+  "Moving backward by Chinese word."
+  (with-temp-buffer
+    (insert "我们中出了一个叛徒")
+    (jieba-rs-mode 1)
+    (let ((jieba-rs-hmm nil))
+      (goto-char (point-max))
+      (jieba-rs-backward-word)
+      (should (= (point) 8))
+      (jieba-rs-backward-word)
+      (should (= (point) 6)))))
+
+(ert-deftest jieba-rs-tests-forward-sentence ()
+  "Moving forward by Chinese sentence."
+  (with-temp-buffer
+    (insert "你好。世界！")
+    (jieba-rs-mode 1)
+    (goto-char (point-min))
+    (jieba-rs-forward-sentence)
+    (should (>= (point) 4))))
+
+(ert-deftest jieba-rs-tests-backward-sentence ()
+  "Moving backward by Chinese sentence."
+  (with-temp-buffer
+    (insert "你好。世界！")
+    (jieba-rs-mode 1)
+    (goto-char (point-max))
+    (jieba-rs-backward-sentence)
+    (should (>= (point) 4))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

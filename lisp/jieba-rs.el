@@ -76,6 +76,10 @@
 ;;
 ;; Per-mode normalization rules for overlay positioning.
 ;;
+;; ** ~jieba-rs-boundary-separator~
+;;
+;; String inserted between words as a boundary marker.
+;;
 ;; ** ~jieba-rs-user-dict~
 ;;
 ;; Path to a user dictionary file, or nil to disable.
@@ -317,6 +321,11 @@ In text terminals this falls back to the echo area."
   "Face for word boundary separators."
   :group 'jieba-rs)
 
+(defcustom jieba-rs-boundary-separator "  "
+  "String inserted between words as a boundary marker."
+  :type 'string
+  :group 'jieba-rs)
+
 (defvar-local jieba-rs-boundaries-overlays nil
   "List of word boundary overlays in the current buffer.")
 
@@ -384,7 +393,7 @@ In text terminals this falls back to the echo area."
         (let ((ov (make-overlay pos pos)))
           (overlay-put ov 'priority 0)
           (overlay-put ov 'after-string
-                       (propertize " │ "
+                       (propertize jieba-rs-boundary-separator
                                    'face
                                    'jieba-rs-boundary-face))
           (push ov jieba-rs-boundaries-overlays)))))

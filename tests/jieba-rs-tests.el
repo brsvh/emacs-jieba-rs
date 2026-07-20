@@ -26,6 +26,7 @@
 (require 'ert)
 (require 'jieba-rs)
 (require 'jieba-rs-module)
+(require 'seq)
 
 (ert-deftest jieba-rs-tests-segment-precise ()
   "Basic Chinese word segmentation in precise mode."
@@ -330,6 +331,16 @@
     (let ((first (aref kws 0)))
       (should (plist-member first :keyword))
       (should (plist-member first :weight)))))
+
+(ert-deftest jieba-rs-tests-extract-keywords-textrank-filters-short-words ()
+  "TextRank excludes words shorter than the default minimum."
+  (let ((kws (jieba-rs-module-extract-keywords
+              "今天股票跌很厉害，股票又跌" 100 "textrank")))
+    (should (> (length kws) 0))
+    (should (seq-every-p
+             (lambda (item)
+               (>= (length (plist-get item :keyword)) 2))
+             kws))))
 
 (ert-deftest jieba-rs-tests-extract-keywords-empty ()
   "TextRank on empty text returns empty vector."

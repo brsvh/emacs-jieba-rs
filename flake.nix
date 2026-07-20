@@ -202,6 +202,13 @@
               foldl'
               versions
               ;
+
+            jiebaRsSource = projectRoot + /lisp/jieba-rs.el;
+
+            jiebaRsTestSource =
+              projectRoot + /tests/jieba-rs-tests.el;
+
+            release = with pkgs; emacsPackagesFor emacs31;
           in
           {
             _module = {
@@ -219,19 +226,28 @@
               };
             };
 
-            packages =
+            packages = {
+              inherit (release)
+                jieba-rs
+                ;
+
+              jieba-rs-module = release.jieba-rs.module;
+            }
+            //
               foldl'
                 (
                   acc: base:
                   let
                     inherit (pkgs)
+                      coreutils
                       emacsPackagesFor
+                      gnugrep
                       writeShellApplication
                       ;
 
                     version = "${versions.major base.version}";
 
-                    emacs =
+                    emacsWithJiebaRs =
                       (emacsPackagesFor base).emacsWithPackages
                         (
                           epkgs: with epkgs; [
@@ -247,7 +263,7 @@
                           name = "emacs${version}-with-jieba-rs";
 
                           runtimeInputs = [
-                            emacs
+                            emacsWithJiebaRs
                           ];
 
                           text = ''
@@ -261,7 +277,8 @@
                           name = "emacs${version}-run-jieba-rs-tests";
 
                           runtimeInputs = [
-                            emacs
+                            coreutils
+                            emacsWithJiebaRs
                           ];
 
                           text = ''
@@ -272,6 +289,114 @@
                               --init-directory "$initdir" \
                               -l "${projectRoot + /tests/jieba-rs-tests.el}" \
                               -f ert-run-tests-batch-and-exit
+                          '';
+                        };
+
+                    "emacs${version}-byte-compile-jieba-rs" =
+                      writeShellApplication
+                        {
+                          name = "emacs${version}-byte-compile-jieba-rs";
+
+                          runtimeInputs = [
+                            coreutils
+                            gnugrep
+                          ];
+
+                          text = ''
+                            initdir="$(mktemp --tmpdir -d emacs-jieba-rs-byte-compile-XXXXXX)"
+                            workdir="$(mktemp --tmpdir -d emacs-jieba-rs-byte-compile-src-XXXXXX)"
+                            trap 'rm -rf "$initdir" "$workdir"' EXIT
+
+                            mkdir -p "$workdir/lisp" "$workdir/tests"
+                            cp "${jiebaRsSource}" "$workdir/lisp/jieba-rs.el"
+                            cp "${jiebaRsTestSource}" \
+                              "$workdir/tests/jieba-rs-tests.el"
+
+                            compileLog="$workdir/byte-compile.log"
+
+                            {
+                              "${emacsWithJiebaRs}/bin/emacs" --batch \
+                                --init-directory "$initdir" \
+                                -L "$workdir/lisp" \
+                                --eval '(setq byte-compile-error-on-warn t)' \
+                                -f batch-byte-compile \
+                                "$workdir/lisp/jieba-rs.el"
+
+                              "${emacsWithJiebaRs}/bin/emacs" --batch \
+                                --init-directory "$initdir" \
+                                -L "$workdir/lisp" \
+                                -L "$workdir/tests" \
+                                --eval '(setq byte-compile-error-on-warn t)' \
+                                -f batch-byte-compile \
+                                "$workdir/tests/jieba-rs-tests.el"
+                            } 2>&1 | tee "$compileLog"
+
+                            if grep -Fq 'Note:' "$compileLog"; then
+                              printf '%s\n' \
+                                'Byte compilation emitted Note diagnostics:' >&2
+                              grep -F 'Note:' "$compileLog" >&2
+                              exit 1
+                            fi
+
+                            "${emacsWithJiebaRs}/bin/emacs" --batch \
+                              --init-directory "$initdir" \
+                              -L "$workdir/lisp" \
+                              --eval '(progn
+                                (require (quote jieba-rs))
+                                (require (quote jieba-rs-module))
+                                (unless
+                                    (equal
+                                     (jieba-rs-module-segment
+                                      "我们中出了一个叛徒" nil)
+                                     ["我们" "中" "出" "了" "一个" "叛徒"])
+                                  (error
+                                   "Rust module segmentation smoke test failed")))'
+                          '';
+                        };
+
+                    "emacs${version}-checkdoc-jieba-rs" =
+                      writeShellApplication
+                        {
+                          name = "emacs${version}-checkdoc-jieba-rs";
+
+                          runtimeInputs = [
+                            coreutils
+                          ];
+
+                          text = ''
+                            initdir="$(mktemp --tmpdir -d emacs-jieba-rs-checkdoc-XXXXXX)"
+                            trap 'rm -rf "$initdir"' EXIT
+
+                            CHECKDOC_SOURCES="$(
+                              printf '%s\n' \
+                                "${projectRoot}/lisp/jieba-rs.el" \
+                                "${projectRoot}/tests/jieba-rs-tests.el"
+                            )" \
+                            "${base}/bin/emacs" --batch \
+                              --init-directory "$initdir" \
+                              --eval '(progn
+                                (require (quote checkdoc))
+                                (dolist
+                                    (file
+                                     (split-string
+                                      (getenv "CHECKDOC_SOURCES")
+                                      "\n" t))
+                                  (let ((buffer
+                                         (find-file-noselect file)))
+                                    (unwind-protect
+                                        (with-current-buffer buffer
+                                          (let
+                                              ((checkdoc-autofix-flag
+                                                (quote never)))
+                                            (condition-case error-data
+                                                (checkdoc-current-buffer)
+                                              (error
+                                               (error
+                                                "Checkdoc failed for %s: %s"
+                                                file
+                                                (error-message-string
+                                                 error-data))))))
+                                      (kill-buffer buffer)))))'
                           '';
                         };
                   }

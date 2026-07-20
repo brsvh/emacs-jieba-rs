@@ -1,4 +1,4 @@
-;;; jieba-rs-tests.el --- jieba-rs tests -*- lexical-binding: t; -*-
+;;; jieba-rs-tests.el --- Tests for jieba-rs  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2026 Bingshan Chang <chang@bingshan.org>
 
@@ -53,7 +53,7 @@
     (should (> (length vec) 0))))
 
 (ert-deftest jieba-rs-tests-segment-return-type ()
-  "jieba-rs-module-segment always returns a vector."
+  "Ensure precise segmentation always returns a vector."
   (should (vectorp (jieba-rs-module-segment "测试" nil)))
   (should (vectorp (jieba-rs-module-segment "" nil))))
 
@@ -70,23 +70,23 @@
     (should (seq-contains-p vec "南京"))))
 
 (ert-deftest jieba-rs-tests-module-segment-all-return-type ()
-  "jieba-rs-module-segment-all always returns a vector."
+  "Ensure full-mode segmentation always returns a vector."
   (should (vectorp (jieba-rs-module-segment-all "测试")))
   (should (vectorp (jieba-rs-module-segment-all ""))))
 
 (ert-deftest jieba-rs-tests-module-segment-search-works ()
-  "jieba-rs-module-segment-search returns bigrams for longer words."
+  "Ensure search segmentation returns bigrams for longer words."
   (let ((vec (jieba-rs-module-segment-search "南京市长江大桥" t)))
     (should (vectorp vec))
     (should (seq-contains-p vec "长江大桥"))))
 
 (ert-deftest jieba-rs-tests-module-segment-search-return-type ()
-  "jieba-rs-module-segment-search always returns a vector."
+  "Ensure search segmentation always returns a vector."
   (should (vectorp (jieba-rs-module-segment-search "测试" nil)))
   (should (vectorp (jieba-rs-module-segment-search "" nil))))
 
 (ert-deftest jieba-rs-tests-module-segment-tag-works ()
-  "jieba-rs-module-segment-tag returns POS tagging results."
+  "Ensure POS tagging returns a vector of result plists."
   (let ((vec (jieba-rs-module-segment-tag "我是中国人" t)))
     (should (vectorp vec))
     (should (> (length vec) 0))
@@ -97,12 +97,12 @@
       (should (plist-member item :category)))))
 
 (ert-deftest jieba-rs-tests-module-segment-tag-return-type ()
-  "jieba-rs-module-segment-tag always returns a vector."
+  "Ensure POS tagging always returns a vector."
   (should (vectorp (jieba-rs-module-segment-tag "测试" nil)))
   (should (vectorp (jieba-rs-module-segment-tag "" nil))))
 
 (ert-deftest jieba-rs-tests--format-words ()
-  "jieba-rs--format-words joins word vector with | separators."
+  "Join word vectors with vertical-bar separators."
   (should (equal (jieba-rs--format-words ["我" "是" "谁"])
                  "我 | 是 | 谁"))
   (should (equal (jieba-rs--format-words ["hello" "世界"])
@@ -119,7 +119,7 @@
               'jieba-rs-module-segment-search) 2)))
 
 (ert-deftest jieba-rs-tests--show-tooltip-noop ()
-  "Display text via message when tooltip-mode is off."
+  "Display text in the echo area when tooltips are disabled."
   (should (stringp (jieba-rs--show-tooltip "test"))))
 
 (ert-deftest jieba-rs-tests-segment-region-works ()
@@ -151,7 +151,7 @@
       (should (string-match-p " | " words)))))
 
 (ert-deftest jieba-rs-tests-hmm-differs ()
-  "jieba-rs--call-segment passes HMM flag through to native function."
+  "Pass the HMM flag through to the native segmentation function."
   (let ((jieba-rs-segment-function 'jieba-rs-module-segment))
     (let ((jieba-rs-hmm nil))
       (should (vectorp (jieba-rs--call-segment "测试"))))
@@ -175,7 +175,7 @@
     (should-not (equal search nil))))
 
 (ert-deftest jieba-rs-tests-mode-toggle ()
-  "jieba-rs-mode toggles on and off correctly."
+  "Toggle the minor mode on and off correctly."
   (with-temp-buffer
     (should-not jieba-rs-mode)
     (jieba-rs-mode 1)

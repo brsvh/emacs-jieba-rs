@@ -16,6 +16,7 @@
 /lisp/jieba-rs-pkg.el
 /lisp/*.elc
 .dir-locals.el
+/dist
 
 # nix
 /repl-result-out

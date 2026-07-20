@@ -3,6 +3,7 @@ authors = ["Bingshan Chang <chang@bingshan.org>"]
 edition = "2024"
 license = "GPL-3.0-or-later"
 name = "emacs-jieba-rs"
+rust-version = "1.88"
 version = "0.1.0"
 
 [dependencies]

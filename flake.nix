@@ -75,9 +75,15 @@
 
                 crane-lib = (crane.mkLib prev.pkgs);
 
+                rustVersion = "${
+                  (prev.lib.importTOML (projectRoot + /Cargo.toml))
+                  .package.rust-version
+                }.0";
+
                 buildCargoPackage =
-                  (crane-lib.overrideToolchain prev.pkgs.rust-bin.stable.latest.default)
-                  .buildPackage;
+                  (crane-lib.overrideToolchain
+                    prev.pkgs.rust-bin.stable.${rustVersion}.default
+                  ).buildPackage;
 
                 package =
                   {
@@ -208,7 +214,7 @@
             jiebaRsTestSource =
               projectRoot + /tests/jieba-rs-tests.el;
 
-            release = with pkgs; emacsPackagesFor emacs31;
+            releasePackages = pkgs.emacsPackagesFor pkgs.emacs31;
           in
           {
             _module = {
@@ -227,11 +233,11 @@
             };
 
             packages = {
-              inherit (release)
+              inherit (releasePackages)
                 jieba-rs
                 ;
 
-              jieba-rs-module = release.jieba-rs.module;
+              jieba-rs-module = releasePackages.jieba-rs.module;
             }
             //
               foldl'

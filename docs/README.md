@@ -23,7 +23,7 @@ Free Documentation License".
 ### 要求
 
 - GNU Emacs 30.1 或更高版本，并启用动态模块支持
-- 从源码构建时，需要 Rust 1.85 或更高版本（2024 edition）、Cargo、C 编译器和 GNU Make
+- 从源码构建时，需要 Rust 1.88 或更高版本（2024 edition）、Cargo、C 编译器和 GNU Make
 
 当前 `Makefile` 按 Linux 动态模块后缀 `.so` 安装模块，flake 直接生成的 per-system 输出也只有
 `x86_64-linux`。在其他平台从源码构建时，需要相应调整 `Makefile` 中的模块后缀；flake 的 overlay 不受该
@@ -212,7 +212,8 @@ make check
 ```
 
 `release-archive` 生成一个标准 Emacs 包归档，其中同时包含 `jieba-rs-module.so`。Rust
-模块不作为独立软件包发布，并与 Emacs 包使用同一版本号。 当前发布归档面向 `x86_64-linux`。
+模块不作为独立软件包发布，并与 Emacs 包使用同一版本号。 当前 GitHub 发布归档使用 Rust 1.88.0 在 Ubuntu 24.04
+上构建，目标为 `x86_64-unknown-linux-gnu`。
 
 `nix develop` 提供仓库使用的格式化和维护工具，但不是包含 Rust、C 编译器和 GNU Emacs 的完整源码构建环境。
 
@@ -284,7 +285,7 @@ compilation 和 Checkdoc 检查器。 当前直接生成的软件包、开发环
 }
 ```
 
-### 使用 flake 启动器
+### 使用 flake 输出
 
 | 输出                            | 用途                                      |
 | ------------------------------- | ----------------------------------------- |

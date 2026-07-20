@@ -148,7 +148,7 @@ fn load_user_dict(env: &Env, path: String) -> Result<()> {
 /// Return the assigned frequency.
 #[defun]
 fn add_word(
-    env: &Env,
+    _env: &Env,
     word: String,
     freq: Value,
     tag: Value,

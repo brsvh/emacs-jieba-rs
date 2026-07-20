@@ -1,0 +1,86 @@
+name: Rust checks
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/rust-checks.yml"
+      - "**/*.rs"
+      - Cargo.lock
+      - Cargo.toml
+      - Makefile
+      - flake.lock
+      - flake.nix
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/rust-checks.yml"
+      - "**/*.rs"
+      - Cargo.lock
+      - Cargo.toml
+      - Makefile
+      - flake.lock
+      - flake.nix
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: emacs-jieba-rs-rust-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Build and test Rust module
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31.10.7
+        with:
+          github_access_token: ${{ github.token }}
+
+      - name: Restore Nix store cache
+        uses: nix-community/cache-nix-action@v7.0.2
+        with:
+          primary-key: >-
+            emacs-jieba-rs-nix-${{ runner.os }}-cargo-test-${{
+              hashFiles(
+                '**/*.nix',
+                '**/flake.lock',
+                'Cargo.toml',
+                'Cargo.lock',
+                'src/**'
+              )
+            }}
+          restore-prefixes-first-match: |
+            emacs-jieba-rs-nix-${{ runner.os }}-cargo-test-
+            emacs-jieba-rs-nix-${{ runner.os }}-
+          save: >-
+            ${{
+              github.event_name == 'push' &&
+              github.ref == 'refs/heads/main'
+            }}
+
+      - name: Build and test Rust module
+        run: nix build .#jieba-rs-module --print-build-logs
+
+  emacs-lisp:
+    name: Emacs Lisp checks
+    needs: rust
+    permissions:
+      contents: read
+    uses: ./.github/workflows/emacs-lisp-checks.yml
+    with:
+      from_rust: true

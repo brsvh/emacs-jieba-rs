@@ -1,0 +1,123 @@
+name: Emacs Lisp checks
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/emacs-lisp-checks.yml"
+      - "**/*.el"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/emacs-lisp-checks.yml"
+      - "**/*.el"
+  workflow_call:
+    inputs:
+      from_rust:
+        description: Run after the Rust checks have succeeded.
+        default: false
+        required: false
+        type: boolean
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: >-
+    emacs-jieba-rs-emacs-lisp-checks-${{
+      inputs.from_rust && 'rust' || 'direct'
+    }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: ${{ matrix.check }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        check:
+          - ERT
+          - byte-compilation
+          - checkdoc
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31.10.7
+        with:
+          github_access_token: ${{ github.token }}
+
+      - name: Restore Nix store cache
+        uses: nix-community/cache-nix-action@v7.0.2
+        with:
+          primary-key: >-
+            emacs-jieba-rs-nix-${{ runner.os }}-${{ matrix.check }}-${{
+              hashFiles(
+                '**/*.nix',
+                '**/flake.lock',
+                'Cargo.toml',
+                'Cargo.lock',
+                'src/**',
+                'lisp/**/*.el',
+                'tests/**',
+                'Makefile'
+              )
+            }}
+          restore-prefixes-first-match: |
+            emacs-jieba-rs-nix-${{ runner.os }}-${{ matrix.check }}-
+            emacs-jieba-rs-nix-${{ runner.os }}-cargo-test-
+            emacs-jieba-rs-nix-${{ runner.os }}-
+          save: >-
+            ${{
+              github.event_name == 'push' &&
+              github.ref == 'refs/heads/main'
+            }}
+
+      - name: Run ${{ matrix.check }}
+        shell: bash
+        env:
+          CHECK: ${{ matrix.check }}
+        run: |
+          set -euo pipefail
+          status=0
+
+          run_check() {
+            if ! "$@"; then
+              status=1
+            fi
+          }
+
+          case "$CHECK" in
+            ERT)
+              run_check nix run .#emacs30-run-jieba-rs-tests
+              run_check nix run .#emacs31-run-jieba-rs-tests
+              ;;
+            byte-compilation)
+              run_check nix run \
+                .#emacs30-byte-compile-jieba-rs
+              run_check nix run \
+                .#emacs31-byte-compile-jieba-rs
+              ;;
+            checkdoc)
+              run_check nix run .#emacs30-checkdoc-jieba-rs
+              run_check nix run .#emacs31-checkdoc-jieba-rs
+              ;;
+            *)
+              printf 'Unknown check: %s\n' "$CHECK" >&2
+              status=1
+              ;;
+          esac
+
+          exit "$status"

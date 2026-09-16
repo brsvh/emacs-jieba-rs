@@ -22,7 +22,7 @@ use jieba_rs::{Jieba, KeywordExtract, TextRank, TfIdf};
 
 emacs::plugin_is_GPL_compatible!();
 
-/// A checked Lisp string that preserves embedded and trailing NULs.
+/// Unicode text with the same character positions as its Lisp string.
 struct LispString(String);
 
 impl FromLisp<'_> for LispString {
@@ -35,8 +35,15 @@ impl FromLisp<'_> for LispString {
         let len = value.copy_string_contents(&mut bytes)?.len();
         bytes.truncate(len);
         match String::from_utf8(bytes) {
-            Ok(text) => Ok(Self(text)),
-            Err(_) => env.signal(
+            Ok(text)
+                if text.is_ascii()
+                    || env
+                        .call("multibyte-string-p", (value,))?
+                        .is_not_nil() =>
+            {
+                Ok(Self(text))
+            }
+            _ => env.signal(
                 "wrong-type-argument",
                 (env.intern("unicode-string-p")?, value),
             ),

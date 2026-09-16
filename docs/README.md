@@ -70,6 +70,9 @@ make local
 | 全模式 | `jieba-rs-module-segment-all` | 扫描所有可能的词语 |
 | 搜索引擎模式 | `jieba-rs-module-segment-search` | 生成用于搜索索引的细粒度切分 |
 
+原生接口接受 Unicode 文本和纯 ASCII 单字节字符串。非 ASCII
+单字节字符串会报错；处理原始编码字节前，应先按正确编码解码，确保分词位置与缓冲区字符位置一致。
+
 `jieba-rs-hmm` 默认为 `t`，控制精确模式和搜索引擎模式的新词发现；全模式不使用 HMM。词移动和可视词边界固定使用精确模式，不受
 `jieba-rs-segment-function` 影响。
 

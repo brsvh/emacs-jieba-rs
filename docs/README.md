@@ -195,8 +195,9 @@ nix run .#emacs31-byte-compile-jieba-rs
 nix run .#emacs31-checkdoc-jieba-rs
 ```
 
-`nix flake check` 检查 flake 输出；ERT、字节编译和 Checkdoc 需要通过上述 `nix run` 命令执行。
-`nix develop` 提供格式化和维护工具，不包含完整的 Rust、C 编译器和 Emacs 构建环境。
+`nix flake check` 检查 flake 输出；ERT、字节编译和 Checkdoc 需要通过上述 `nix run` 命令执行。 字节编译和
+Checkdoc 同时覆盖主库、elfmt 格式化工具及二者的测试文件。 `nix develop` 提供格式化和维护工具，不包含完整的 Rust、C 编译器和
+Emacs 构建环境。
 
 常用 Makefile 目标：
 

@@ -205,14 +205,17 @@
           }:
           let
             inherit (lib)
+              concatMapStringsSep
               foldl'
               versions
               ;
 
-            jiebaRsSource = projectRoot + /lisp/jieba-rs.el;
-
-            jiebaRsTestSource =
-              projectRoot + /tests/jieba-rs-tests.el;
+            lispSources = [
+              "lisp/jieba-rs.el"
+              "tools/elfmt/elfmt.el"
+              "tests/jieba-rs-tests.el"
+              "tests/elfmt-tests.el"
+            ];
 
             releasePackages = pkgs.emacsPackagesFor pkgs.emacs31;
           in
@@ -315,29 +318,25 @@
                             workdir="$(mktemp --tmpdir -d emacs-jieba-rs-byte-compile-src-XXXXXX)"
                             trap 'rm -rf "$initdir" "$workdir"' EXIT
 
-                            mkdir -p "$workdir/lisp" "$workdir/tests"
-                            cp "${jiebaRsSource}" "$workdir/lisp/jieba-rs.el"
-                            cp "${jiebaRsTestSource}" \
-                              "$workdir/tests/jieba-rs-tests.el"
+                            ${concatMapStringsSep "\n" (source: ''
+                              install -Dm644 "${projectRoot}/${source}" "$workdir/${source}"
+                            '') lispSources}
 
                             compileLog="$workdir/byte-compile.log"
 
-                            {
-                              "${emacsWithJiebaRs}/bin/emacs" --batch \
-                                --init-directory "$initdir" \
-                                -L "$workdir/lisp" \
-                                --eval '(setq byte-compile-error-on-warn t)' \
-                                -f batch-byte-compile \
-                                "$workdir/lisp/jieba-rs.el"
-
-                              "${emacsWithJiebaRs}/bin/emacs" --batch \
-                                --init-directory "$initdir" \
-                                -L "$workdir/lisp" \
-                                -L "$workdir/tests" \
-                                --eval '(setq byte-compile-error-on-warn t)' \
-                                -f batch-byte-compile \
-                                "$workdir/tests/jieba-rs-tests.el"
-                            } 2>&1 | tee "$compileLog"
+                            "${emacsWithJiebaRs}/bin/emacs" --batch \
+                              --init-directory "$initdir" \
+                              -L "$workdir/lisp" \
+                              -L "$workdir/tools/elfmt" \
+                              -L "$workdir/tests" \
+                              --eval '(setq byte-compile-error-on-warn t)' \
+                              -f batch-byte-compile \
+                              ${
+                                concatMapStringsSep " \\\n" (
+                                  source: ''"$workdir/${source}"''
+                                ) lispSources
+                              } \
+                              2>&1 | tee "$compileLog"
 
                             if grep -Fq 'Note:' "$compileLog"; then
                               printf '%s\n' \
@@ -377,8 +376,9 @@
 
                             CHECKDOC_SOURCES="$(
                               printf '%s\n' \
-                                "${projectRoot}/lisp/jieba-rs.el" \
-                                "${projectRoot}/tests/jieba-rs-tests.el"
+                                ${concatMapStringsSep " \\\n" (
+                                  source: ''"${projectRoot}/${source}"''
+                                ) lispSources}
                             )" \
                             "${base}/bin/emacs" --batch \
                               --init-directory "$initdir" \
@@ -389,22 +389,25 @@
                                      (split-string
                                       (getenv "CHECKDOC_SOURCES")
                                       "\n" t))
-                                  (let ((buffer
-                                         (find-file-noselect file)))
-                                    (unwind-protect
-                                        (with-current-buffer buffer
-                                          (let
-                                              ((checkdoc-autofix-flag
-                                                (quote never)))
-                                            (condition-case error-data
-                                                (checkdoc-current-buffer)
-                                              (error
-                                               (error
-                                                "Checkdoc failed for %s: %s"
-                                                file
-                                                (error-message-string
-                                                 error-data))))))
-                                      (kill-buffer buffer)))))'
+                                  (with-temp-buffer
+                                    (insert-file-contents file)
+                                    (emacs-lisp-mode)
+                                    (setq buffer-file-name file)
+                                    (goto-char (point-min))
+                                    ;; Checkdoc expects the Lisp header first.
+                                    (when (looking-at "#!")
+                                      (delete-region
+                                       (point)
+                                       (progn (forward-line 1) (point))))
+                                    (let ((checkdoc-autofix-flag (quote never)))
+                                      (condition-case error-data
+                                          (checkdoc-current-buffer)
+                                        (error
+                                         (error
+                                          "Checkdoc failed for %s: %s"
+                                          file
+                                          (error-message-string
+                                           error-data))))))))'
                           '';
                         };
                   }

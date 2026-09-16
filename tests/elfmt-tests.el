@@ -91,5 +91,32 @@
               (should (equal formatted (buffer-string))))))
       (delete-directory directory t))))
 
+(ert-deftest elfmt-tests-save-preserves-modified-whitespace ()
+  "Keep whitespace characters with simple and combined modifiers."
+  (let* ((directory (make-temp-file "elfmt-modified-" t))
+         (file (expand-file-name "literal.el" directory)))
+    (unwind-protect
+        (dolist (style '("space" "tab"))
+          (with-temp-file (expand-file-name ".editorconfig" directory)
+            (insert "root=true\n[*.el]\nindent_style=" style
+                    "\ntrim_trailing_whitespace=true\n"))
+          (dolist (modifier '("\\C-" "\\M-" "\\s-" "\\S-" "\\A-" "\\H-"
+                              "\\M-\\C-" "\\C-\\M-" "\\C-\\S-" "\\^"))
+            (dolist (character '(" " "\t"))
+              (let ((source (concat "(list ?" modifier character
+                                    "  \n      nil)\n;; Comment   \n")))
+                (with-temp-file file (insert source))
+                (elfmt--run (list file))
+                (let ((formatted (with-temp-buffer
+                                   (insert-file-contents file)
+                                   (buffer-string))))
+                  (should (equal (read source) (read formatted)))
+                  (should-not (string-match-p "Comment +\n" formatted))
+                  (elfmt--run (list file))
+                  (with-temp-buffer
+                    (insert-file-contents file)
+                    (should (equal formatted (buffer-string)))))))))
+      (delete-directory directory t))))
+
 (provide 'elfmt-tests)
 ;;; elfmt-tests.el ends here

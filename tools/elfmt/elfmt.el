@@ -223,12 +223,22 @@
             (end (match-end 0)))
         (let ((state (save-excursion (syntax-ppss start))))
           (unless (nth 3 state)
-            (when (and (not (nth 4 state))
-                       (or (nth 5 state)
-                           (and (eq (char-before start) ??)
-                                (eq (nth 2 state) (1- start)))))
-              ;; Keep an escaped space or a literal space character.
-              (setq start (1+ start)))
+            (unless (nth 4 state)
+              (cond
+               ((nth 5 state)
+                (setq start (1+ start)))
+               ((and (nth 2 state)
+                     (eq (char-after (nth 2 state)) ??))
+                ;; The reader understands modifiers such as ?\C-SPACE
+                ;; that syntax-ppss does not treat as an escape.
+                (setq start
+                      (max start
+                           (min end
+                                (save-excursion
+                                  (goto-char (nth 2 state))
+                                  (condition-case nil
+                                      (progn (read (current-buffer)) (point))
+                                    (error end)))))))))
             (delete-region start end)))))))
 
 (defun elfmt--format-file (file)

@@ -49,7 +49,39 @@ struct Dictionary {
     jieba: Jieba,
     // Upstream updates frequencies, but retains tags for existing words.
     tags: HashMap<String, String>,
+    frequencies: Frequencies,
     version: u64,
+}
+
+// Upstream uses unchecked totals, including total + new before
+// subtracting an old frequency.  Reserve headroom for both that
+// intermediate sum and the embedded dictionary (about 60 million).
+const MAX_USER_FREQUENCY: usize = usize::MAX / 4;
+
+#[derive(Clone, Default)]
+struct Frequencies {
+    words: HashMap<String, usize>,
+    total: usize,
+}
+
+impl Frequencies {
+    fn insert(&mut self, word: &str, frequency: usize) -> Result<()> {
+        if word.is_empty() {
+            return Ok(());
+        }
+        let old = self.words.get(word).copied().unwrap_or(0);
+        let total = (self.total - old)
+            .checked_add(frequency)
+            .filter(|total| *total <= MAX_USER_FREQUENCY)
+            .ok_or_else(|| {
+                emacs::Error::msg(format!(
+                    "user dictionary frequencies exceed {MAX_USER_FREQUENCY}"
+                ))
+            })?;
+        self.words.insert(word.into(), frequency);
+        self.total = total;
+        Ok(())
+    }
 }
 
 static JIEBA: LazyLock<Mutex<Dictionary>> =
@@ -195,6 +227,18 @@ fn load_user_dict(env: &Env, path: LispString) -> Result<()> {
         }
     };
     let mut dictionary = JIEBA.lock().unwrap();
+    let mut frequencies = dictionary.frequencies.clone();
+    for line in contents.lines() {
+        let mut fields = line.split_whitespace();
+        if let Some(word) = fields.next() {
+            let frequency = fields
+                .next()
+                .map(str::parse::<usize>)
+                .transpose()?
+                .unwrap_or(0);
+            frequencies.insert(word, frequency)?;
+        }
+    }
     // Upstream mutates frequencies before it can report a parse error.
     let mut jieba = dictionary.jieba.clone();
     match jieba.load_dict(&mut contents.as_bytes()) {
@@ -208,6 +252,7 @@ fn load_user_dict(env: &Env, path: LispString) -> Result<()> {
                 }
             }
             dictionary.jieba = jieba;
+            dictionary.frequencies = frequencies;
             dictionary.version = dictionary.version.wrapping_add(1);
             Ok(())
         }
@@ -243,15 +288,18 @@ fn add_word(
         None
     };
     let mut dictionary = JIEBA.lock().unwrap();
-    dictionary.version = dictionary.version.wrapping_add(1);
+    let frequency = freq_opt
+        .unwrap_or_else(|| dictionary.jieba.suggest_freq(&word));
+    dictionary.frequencies.insert(&word, frequency)?;
     let freq = dictionary.jieba.add_word(
         &word,
-        freq_opt,
+        Some(frequency),
         tag_opt.as_deref(),
     );
     if let Some(tag) = tag_opt {
         dictionary.tags.insert(word, tag);
     }
+    dictionary.version = dictionary.version.wrapping_add(1);
     Ok(freq)
 }
 
@@ -311,6 +359,27 @@ fn init(_: &Env) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_frequency_budget_rejects_overflow_atomically() {
+        let mut frequencies = Frequencies::default();
+        frequencies.insert("existing", MAX_USER_FREQUENCY).unwrap();
+        assert!(frequencies.insert("new", 1).is_err());
+        assert!(frequencies.insert("existing", usize::MAX).is_err());
+        assert_eq!(frequencies.total, MAX_USER_FREQUENCY);
+        assert_eq!(frequencies.words.len(), 1);
+        assert_eq!(frequencies.words["existing"], MAX_USER_FREQUENCY);
+    }
+
+    #[test]
+    fn test_frequency_budget_reuses_replaced_frequencies() {
+        let mut frequencies = Frequencies::default();
+        frequencies.insert("word", MAX_USER_FREQUENCY).unwrap();
+        frequencies.insert("word", MAX_USER_FREQUENCY).unwrap();
+        frequencies.insert("word", 0).unwrap();
+        frequencies.insert("other", MAX_USER_FREQUENCY).unwrap();
+        assert_eq!(frequencies.total, MAX_USER_FREQUENCY);
+    }
 
     #[test]
     fn test_segment_precise() {

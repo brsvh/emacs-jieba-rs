@@ -76,6 +76,36 @@
         (unless (> calls 0) (error "GC hook was not exercised"))
         (princ "ok")))))
 
+(ert-deftest jieba-rs-tests-reject-excessive-dictionary-frequencies ()
+  "Reject individual and cumulative frequency excess without mutation."
+  (jieba-rs-tests--run-native-child
+   '(progn
+      (require 'ert)
+      (let ((file (make-temp-file "jieba-frequency-")))
+        (unwind-protect
+            (progn
+              (jieba-rs-module-add-word "审查词甲" most-positive-fixnum "nz")
+              (jieba-rs-module-add-word "审查词乙" most-positive-fixnum "nz")
+              (let ((version (jieba-rs-module-dictionary-version))
+                    (words (jieba-rs-module-segment "我们中出了一个叛徒" nil))
+                    (tags (jieba-rs-module-segment-tag "审查词甲" nil)))
+                (dolist (frequency (list 2 (1- (expt 2 63))))
+                  (should-error
+                   (jieba-rs-module-add-word "审查词丙" frequency "new"))
+                  (with-temp-file file
+                    (insert (format "审查词甲 %d changed\n审查词丙 %d nz\n"
+                                    most-positive-fixnum frequency)))
+                  (should-error (jieba-rs-module-load-user-dict file))
+                  (should (= version (jieba-rs-module-dictionary-version)))
+                  (should (equal words (jieba-rs-module-segment
+                                        "我们中出了一个叛徒" nil)))
+                  (should (equal tags (jieba-rs-module-segment-tag
+                                       "审查词甲" nil)))))
+              ;; Replacing the same record must not consume more budget.
+              (jieba-rs-module-add-word "审查词甲" most-positive-fixnum nil))
+          (delete-file file)))
+      (princ "ok"))))
+
 (ert-deftest jieba-rs-tests-segment-precise ()
   "Basic Chinese word segmentation in precise mode."
   (should (equal (jieba-rs-module-segment "我们中出了一个叛徒" nil)

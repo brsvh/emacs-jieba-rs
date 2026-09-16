@@ -215,14 +215,21 @@
       (elfmt--restore-indent-specs saved-properties))))
 
 (defun elfmt--trim-trailing-whitespace ()
-  "Remove line-end spaces and tabs outside string literals."
+  "Remove line-end spaces and tabs that are not part of Lisp data."
   (save-excursion
     (goto-char (point-min))
     (while (re-search-forward "[ \t]+$" nil t)
       (let ((start (match-beginning 0))
             (end (match-end 0)))
-        (unless (nth 3 (save-excursion (syntax-ppss start)))
-          (delete-region start end))))))
+        (let ((state (save-excursion (syntax-ppss start))))
+          (unless (nth 3 state)
+            (when (and (not (nth 4 state))
+                       (or (nth 5 state)
+                           (and (eq (char-before start) ??)
+                                (eq (nth 2 state) (1- start)))))
+              ;; Keep an escaped space or a literal space character.
+              (setq start (1+ start)))
+            (delete-region start end)))))))
 
 (defun elfmt--format-file (file)
   "Format the Emacs Lisp FILE in place."

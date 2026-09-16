@@ -65,5 +65,31 @@
               (should (equal formatted (buffer-string))))))
       (delete-directory directory t))))
 
+(ert-deftest elfmt-tests-save-preserves-escaped-whitespace ()
+  "Keep literal character and symbol whitespace when trimming files."
+  (let* ((directory (make-temp-file "elfmt-escaped-" t))
+         (file (expand-file-name "literal.el" directory))
+         (source (concat "(list ?\\   \n      ?\\\t  \n      ?   \n"
+                         "      'foo\\   \n      'bar\\\t  \n"
+                         "      'baz\\\\   \n)\n;; Comment\\   \n")))
+    (unwind-protect
+        (progn
+          (with-temp-file (expand-file-name ".editorconfig" directory)
+            (insert "root=true\n[*.el]\nindent_style=space\n"
+                    "trim_trailing_whitespace=true\n"))
+          (with-temp-file file (insert source))
+          (elfmt--run (list file))
+          (let ((formatted (with-temp-buffer
+                             (insert-file-contents file)
+                             (buffer-string))))
+            (should (equal (read source) (read formatted)))
+            (should-not (string-match-p "Comment\\\\ +\n" formatted))
+            (should-not (string-match-p "baz\\\\\\\\ +\n" formatted))
+            (elfmt--run (list file))
+            (with-temp-buffer
+              (insert-file-contents file)
+              (should (equal formatted (buffer-string))))))
+      (delete-directory directory t))))
+
 (provide 'elfmt-tests)
 ;;; elfmt-tests.el ends here

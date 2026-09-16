@@ -374,6 +374,8 @@
               (set-window-buffer other-window other)
               (dolist (kind '(boundaries tags))
                 (with-current-buffer source
+                  (setq jieba-rs--boundaries-enabled t
+                        jieba-rs--tags-enabled t)
                   (jieba-rs--schedule-refresh kind source-window)
                   (let ((timer (if (eq kind 'boundaries)
                                    jieba-rs--boundaries-timer
@@ -468,6 +470,60 @@
             (should (= (length jieba-rs-tag-overlays) 1))
             (should (= (overlay-start (car jieba-rs-tag-overlays)) 3)))
         (jieba-rs--clear-tags)))))
+
+(ert-deftest jieba-rs-tests-display-state-independent-of-overlays ()
+  "Disable empty displays and displays waiting for a refresh."
+  (with-temp-buffer
+    (jieba-rs-toggle-boundaries)
+    (jieba-rs-toggle-tags)
+    (should jieba-rs--boundaries-enabled)
+    (should jieba-rs--tags-enabled)
+    (should-not jieba-rs-boundaries-overlays)
+    (should-not jieba-rs-tag-overlays)
+    (jieba-rs-toggle-boundaries)
+    (jieba-rs-toggle-tags)
+    (should-not jieba-rs--boundaries-enabled)
+    (should-not jieba-rs--tags-enabled)
+    (should-not (memq #'jieba-rs--tags-after-change after-change-functions))
+    (insert "我们中出了一个叛徒")
+    (jieba-rs-toggle-boundaries)
+    (jieba-rs-toggle-tags)
+    (insert "！")
+    (should jieba-rs--boundaries-timer)
+    (should jieba-rs--tags-timer)
+    (jieba-rs-mode -1)
+    (should-not jieba-rs--boundaries-enabled)
+    (should-not jieba-rs--tags-enabled)
+    (should-not jieba-rs--boundaries-timer)
+    (should-not jieba-rs--tags-timer)
+    (should-not (memq #'jieba-rs--post-command-scroll-check post-command-hook))))
+
+(ert-deftest jieba-rs-tests-empty-display-scroll-refresh ()
+  "Schedule scroll refreshes even when there are no overlays."
+  (with-temp-buffer
+    (unwind-protect
+        (progn
+          (jieba-rs-toggle-boundaries)
+          (jieba-rs-toggle-tags)
+          (jieba-rs--boundaries-window-scroll (selected-window) 1)
+          (jieba-rs--tags-window-scroll (selected-window) 1)
+          (should jieba-rs--boundaries-timer)
+          (should jieba-rs--tags-timer))
+      (jieba-rs--clear-display))))
+
+(ert-deftest jieba-rs-tests-kill-buffer-cancels-display-timers ()
+  "Remove pending timers when their buffer is killed."
+  (let ((buffer (generate-new-buffer " *jieba-timers*"))
+        boundary-timer tag-timer)
+    (with-current-buffer buffer
+      (jieba-rs-toggle-boundaries)
+      (jieba-rs-toggle-tags)
+      (insert "测试")
+      (setq boundary-timer jieba-rs--boundaries-timer
+            tag-timer jieba-rs--tags-timer))
+    (kill-buffer buffer)
+    (should-not (memq boundary-timer timer-idle-list))
+    (should-not (memq tag-timer timer-idle-list))))
 
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

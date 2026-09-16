@@ -129,8 +129,17 @@
   :prefix "jieba-rs-"
   :group 'tools)
 
+(defun jieba-rs--set-display-option (symbol value)
+  "Set the default of SYMBOL to VALUE and refresh affected displays."
+  (set-default symbol value)
+  (when (fboundp 'jieba-rs--refresh-display-configuration)
+    (dolist (buffer (buffer-list))
+      (with-current-buffer buffer
+        (jieba-rs--refresh-display-configuration)))))
+
 (defcustom jieba-rs-hmm t
   "When non-nil, enable HMM-based new word discovery."
+  :set #'jieba-rs--set-display-option
   :type 'boolean
   :group 'jieba-rs)
 
@@ -167,6 +176,7 @@ Each element is (MODE . RULES) where MODE is a major-mode symbol
 or t for the default fallback.  RULES is a list of (REGEXP
 . REPLACEMENT) pairs applied in order with \
 `replace-regexp-in-string'."
+  :set #'jieba-rs--set-display-option
   :type '(repeat
           (cons (choice (const t)
                         (symbol :tag "Major mode"))
@@ -186,6 +196,7 @@ or t for the default fallback.  RULES is a list of (REGEXP
 
 (defcustom jieba-rs-boundary-separator "  "
   "String inserted between words as a boundary marker."
+  :set #'jieba-rs--set-display-option
   :type 'string
   :group 'jieba-rs)
 
@@ -195,6 +206,7 @@ Longer lines are skipped to keep idle refreshes responsive after editing.
 The count excludes the terminating newline and respects narrowing.
 Set to nil to display lines of any length, which may delay Emacs.
 Word motion and explicit segmentation commands always use the full text."
+  :set #'jieba-rs--set-display-option
   :type '(choice (const :tag "Unlimited" nil)
                  (natnum :tag "Maximum characters"))
   :group 'jieba-rs)
@@ -246,6 +258,9 @@ Word motion and explicit segmentation commands always use the full text."
 
 (defvar-local jieba-rs--display-restriction nil
   "Accessible bounds observed by the enabled displays.")
+
+(defvar-local jieba-rs--display-configuration nil
+  "Options observed by the enabled displays.")
 
 (defvar-local jieba-rs-boundaries-overlays nil
   "List of word boundary overlays in the current buffer.")
@@ -550,6 +565,11 @@ Each token is a vector of start, end, word and optional category."
 
 (defun jieba-rs--update-display-hooks ()
   "Keep refresh and cleanup hooks consistent with display state."
+  (if (or jieba-rs--boundaries-enabled jieba-rs--tags-enabled)
+      (unless jieba-rs--display-configuration
+        (setq jieba-rs--display-configuration
+              (copy-tree (jieba-rs--display-options))))
+    (setq jieba-rs--display-configuration nil))
   (setq jieba-rs--display-restriction
         (when (or jieba-rs--boundaries-enabled jieba-rs--tags-enabled)
           (cons (point-min) (point-max))))
@@ -732,8 +752,25 @@ so an already enabled display can retry after the text is corrected."
         (jieba-rs--delete-display-overlays overlays-variable timer-variable))
       (jieba-rs--update-display-hooks))))
 
+(defun jieba-rs--display-options ()
+  "Return the configuration affecting this buffer's displays."
+  (list jieba-rs-hmm jieba-rs-normalize-rules
+        jieba-rs-boundary-separator jieba-rs-max-display-line-length))
+
+(defun jieba-rs--refresh-display-configuration ()
+  "Clear stale displays and schedule a refresh when options change."
+  (when (or jieba-rs--boundaries-enabled jieba-rs--tags-enabled)
+    (let ((options (jieba-rs--display-options)))
+      (unless (equal options jieba-rs--display-configuration)
+        (setq jieba-rs--display-configuration (copy-tree options))
+        (when jieba-rs--boundaries-enabled
+          (jieba-rs--boundaries-after-change))
+        (when jieba-rs--tags-enabled
+          (jieba-rs--tags-after-change))))))
+
 (defun jieba-rs--post-command-scroll-check ()
   "Schedule refreshes after commands that change the view."
+  (jieba-rs--refresh-display-configuration)
   (when (or (not (equal jieba-rs--display-restriction
                         (cons (point-min) (point-max))))
             (memq this-command

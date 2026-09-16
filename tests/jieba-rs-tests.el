@@ -1297,6 +1297,74 @@
           (should-not (memq #'jieba-rs--window-change window-size-change-functions))
           (should-not jieba-rs--display-restriction))))))
 
+(ert-deftest jieba-rs-tests-displays-observe-configuration ()
+  "Refresh global and local options without disturbing local overrides."
+  (let ((original-hmm (default-value 'jieba-rs-hmm))
+        (first (generate-new-buffer " *jieba-config-first*"))
+        (second (generate-new-buffer " *jieba-config-second*")))
+    (unwind-protect
+        (save-window-excursion
+          (set-default 'jieba-rs-hmm nil)
+          (delete-other-windows)
+          (switch-to-buffer first)
+          (set-window-buffer (split-window-right) second)
+          (cl-letf (((symbol-function 'window-end)
+                     (lambda (&rest _) (point-max))))
+            (dolist (buffer (list first second))
+              (with-current-buffer buffer
+                (insert "杭研大厦\n中国北京\n")
+                (goto-char 1)
+                (jieba-rs-toggle-boundaries)
+                (jieba-rs-toggle-tags)))
+            (with-current-buffer second (setq-local jieba-rs-hmm nil))
+            (cl-labels
+                ((refresh ()
+                   (dolist (timer (list jieba-rs--boundaries-timer
+                                        jieba-rs--tags-timer))
+                     (should (timerp timer))
+                     (apply (timer--function timer) (timer--args timer))))
+                 (positions ()
+                   (sort (mapcar #'overlay-start jieba-rs-boundaries-overlays)
+                         #'<)))
+              ;; Customize runs outside either displayed source buffer.
+              (with-temp-buffer (customize-set-variable 'jieba-rs-hmm t))
+              (with-current-buffer first
+                (should-not jieba-rs-boundaries-overlays)
+                (refresh)
+                (should (equal (positions) '(3 5 8)))
+                (jieba-rs-forward-word)
+                (should (= (point) 3)))
+              (with-current-buffer second
+                (should-not jieba-rs--boundaries-timer)
+                (should (equal (positions) '(2 3 5 8)))
+                ;; Plain buffer-local assignments are detected after commands.
+                (setq-local jieba-rs-hmm t
+                            jieba-rs-boundary-separator "|")
+                (let ((this-command 'eval-expression))
+                  (run-hooks 'post-command-hook))
+                (refresh)
+                (should (equal (positions) '(3 5 8)))
+                (should (equal (overlay-get (car jieba-rs-boundaries-overlays)
+                                            'after-string)
+                               "|"))
+                (dolist (option '((jieba-rs-max-display-line-length 1 nil)
+                                  (jieba-rs-max-display-line-length nil t)
+                                  (jieba-rs-normalize-rules ((t ("." . " "))) nil)))
+                  (set (make-local-variable (car option)) (nth 1 option))
+                  (let ((this-command 'eval-expression))
+                    (run-hooks 'post-command-hook))
+                  (refresh)
+                  (should (eq (not (null jieba-rs-tag-overlays))
+                              (nth 2 option))))
+                (let ((this-command 'forward-char))
+                  (run-hooks 'post-command-hook))
+                (should-not jieba-rs--tags-timer)
+                (jieba-rs--clear-display)
+                (should-not jieba-rs--display-configuration)))))
+      (kill-buffer first)
+      (kill-buffer second)
+      (set-default 'jieba-rs-hmm original-hmm))))
+
 (ert-deftest jieba-rs-tests-display-failure-cleans-partial-overlays ()
   "Roll back first activation and allow an enabled display to recover."
   (save-window-excursion

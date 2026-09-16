@@ -561,6 +561,62 @@
         (kill-buffer source)
         (kill-buffer other)))))
 
+(ert-deftest jieba-rs-tests-dictionary-refreshes-enabled-displays ()
+  "Refresh both displays in all shown buffers after dictionary changes."
+  (save-window-excursion
+    (let ((buffers (list (generate-new-buffer " *jieba-dict-a*")
+                         (generate-new-buffer " *jieba-dict-b*")))
+          (jieba-rs-user-dict (make-temp-file "jieba-display-dict-"))
+          (jieba-rs--loaded-user-dicts (make-hash-table :test #'equal))
+          (jieba-rs-hmm nil)
+          (word "共享显示刷新回归词"))
+      (unwind-protect
+          (progn
+            (jieba-rs-module-add-word word 0 "old")
+            (switch-to-buffer (car buffers))
+            (set-window-buffer (split-window-below) (cadr buffers))
+            (dolist (buffer buffers)
+              (with-current-buffer buffer
+                (insert word)
+                (jieba-rs-toggle-boundaries)
+                (jieba-rs-toggle-tags)
+                (should jieba-rs-boundaries-overlays)))
+            (dolist (operation '(add reload failed-save))
+              (pcase operation
+                ('add (jieba-rs-add-word word 1000 "updated"))
+                ('reload
+                 (with-temp-file jieba-rs-user-dict
+                   (insert word " 1000 updated\n"))
+                 (jieba-rs-reload-user-dict))
+                ('failed-save
+                 (cl-letf (((symbol-function 'jieba-rs--append-word)
+                            (lambda (&rest _) (error "Cannot save"))))
+                   (should-error (jieba-rs-add-word word 1000 "updated" t)))))
+              (dolist (buffer buffers)
+                (with-current-buffer buffer
+                  (should-not jieba-rs-boundaries-overlays)
+                  (should-not jieba-rs-tag-overlays)
+                  (should jieba-rs--boundaries-timer)
+                  (should jieba-rs--tags-timer)
+                  (dolist (timer (list jieba-rs--boundaries-timer
+                                       jieba-rs--tags-timer))
+                    (apply (timer--function timer) (timer--args timer)))
+                  (should-not jieba-rs-boundaries-overlays)
+                  (should (= (length jieba-rs-tag-overlays) 1))
+                  (should (equal (overlay-get (car jieba-rs-tag-overlays)
+                                              'after-string)
+                                 "updated")))))
+            (should-error (jieba-rs-add-word word -1 "failed"))
+            (with-temp-file jieba-rs-user-dict (insert "bad invalid n\n"))
+            (should-error (jieba-rs-reload-user-dict))
+            (dolist (buffer buffers)
+              (with-current-buffer buffer
+                (should-not jieba-rs--boundaries-timer)
+                (should-not jieba-rs--tags-timer)
+                (should (= (length jieba-rs-tag-overlays) 1)))))
+        (mapc #'kill-buffer buffers)
+        (delete-file jieba-rs-user-dict)))))
+
 (ert-deftest jieba-rs-tests-refresh-ignores-dead-buffer ()
   "A pending callback tolerates a killed source buffer."
   (let ((source (generate-new-buffer " *jieba-dead*")))

@@ -276,6 +276,7 @@ With FORCE, reload unchanged files and propagate errors."
           (when (or force (not state)
                     (not (equal state (gethash file jieba-rs--loaded-user-dicts))))
             (jieba-rs-module-load-user-dict file)
+            (jieba-rs--refresh-dictionary-displays)
             ;; A concurrently edited file must be retried next time.
             (if (and state (equal state (jieba-rs--dictionary-file-state file)))
                 (puthash file state jieba-rs--loaded-user-dicts)
@@ -534,6 +535,15 @@ Each token is a vector of start, end, word and optional category."
         jieba-rs--segment-cache-limit 128
         jieba-rs--segment-cache-clock 0))
 
+(defun jieba-rs--refresh-dictionary-displays ()
+  "Clear stale displays and schedule refreshes after a dictionary change."
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (when jieba-rs--boundaries-enabled
+        (jieba-rs--boundaries-after-change))
+      (when jieba-rs--tags-enabled
+        (jieba-rs--tags-after-change)))))
+
 (defun jieba-rs--window-buffer-change (window)
   "Refresh enabled displays when WINDOW starts showing this buffer."
   (with-current-buffer (window-buffer window)
@@ -727,6 +737,7 @@ If writing the file fails, WORD remains available for this session."
     (when file
       (make-directory (file-name-directory file) t))
     (let ((f (jieba-rs-module-add-word word freq tag)))
+      (jieba-rs--refresh-dictionary-displays)
       (when file
         (jieba-rs--append-word file word f tag))
       f)))

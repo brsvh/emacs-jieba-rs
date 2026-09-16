@@ -261,27 +261,28 @@
 
 (ert-deftest jieba-rs-tests-hmm-differs ()
   "Pass the HMM flag through to the native segmentation function."
-  (let ((jieba-rs-segment-function 'jieba-rs-module-segment))
-    (let ((jieba-rs-hmm nil))
-      (should (vectorp (jieba-rs--call-segment "测试"))))
-    (let ((jieba-rs-hmm t))
-      (should (vectorp (jieba-rs--call-segment "测试"))))))
+  (dolist (jieba-rs-segment-function '(jieba-rs-module-segment
+                                       jieba-rs-module-segment-search))
+    (cl-letf (((symbol-function jieba-rs-segment-function)
+               (lambda (text hmm) (vector text hmm))))
+      (dolist (jieba-rs-hmm '(nil t))
+        (should (equal (jieba-rs--call-segment "测试")
+                       (vector "测试" jieba-rs-hmm)))))))
 
 (ert-deftest jieba-rs-tests-segment-function-differs ()
   "Call dispatch respects jieba-rs-segment-function."
   (let* ((jieba-rs-hmm nil)
          (jieba-rs-segment-function 'jieba-rs-module-segment)
-         (precise (jieba-rs--call-segment "测试"))
+         (precise (jieba-rs--call-segment "南京市长江大桥"))
          (jieba-rs-segment-function 'jieba-rs-module-segment-all)
-         (full (jieba-rs--call-segment "测试"))
+         (full (jieba-rs--call-segment "南京市长江大桥"))
          (jieba-rs-segment-function 'jieba-rs-module-segment-search)
-         (search (jieba-rs--call-segment "测试")))
-    (should (vectorp precise))
-    (should (vectorp full))
-    (should (vectorp search))
-    (should-not (equal precise nil))
-    (should-not (equal full nil))
-    (should-not (equal search nil))))
+         (search (jieba-rs--call-segment "南京市长江大桥")))
+    (should (equal precise ["南京市" "长江大桥"]))
+    (should (seq-contains-p full "南京"))
+    (should (seq-contains-p search "长江"))
+    (should-not (equal precise full))
+    (should-not (equal precise search))))
 
 (ert-deftest jieba-rs-tests-mode-toggle ()
   "Toggle the minor mode on and off correctly."
@@ -1383,6 +1384,30 @@
         (should (= scans 4))
         (jieba-rs--clear-display)
         (should-not jieba-rs--content-end-cache)))))
+
+(ert-deftest jieba-rs-tests-extraction-commands-share-dispatch ()
+  "Preserve method, count, HMM and accessible text in both commands."
+  (with-temp-buffer
+    (insert "前中国北京后")
+    (narrow-to-region 2 6)
+    (dolist (method '(tfidf textrank precise))
+      (let ((jieba-rs-extract-function method)
+            (jieba-rs-hmm nil)
+            result)
+        (cl-letf (((symbol-function 'jieba-rs-module-extract-keywords)
+                   (lambda (&rest args) (cons 'keywords args)))
+                  ((symbol-function 'jieba-rs-module-segment)
+                   (lambda (&rest args) (cons 'precise args)))
+                  ((symbol-function 'jieba-rs--display-extract-results)
+                   (lambda (items _title) (setq result items))))
+          (jieba-rs-extract-keywords-buffer 3)
+          (should (equal result (if (eq method 'precise)
+                                    '(precise "中国北京" nil)
+                                  (list 'keywords "中国北京" 3 (symbol-name method)))))
+          (jieba-rs-extract-keywords-region 2 4 5)
+          (should (equal result (if (eq method 'precise)
+                                    '(precise "中国" nil)
+                                  (list 'keywords "中国" 5 (symbol-name method))))))))))
 
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

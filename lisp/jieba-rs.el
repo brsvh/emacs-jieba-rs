@@ -896,51 +896,36 @@ Display results in a buffer."
                         jieba-rs-segment-function)))
     (jieba-rs--show-buffer words title)))
 
+(defun jieba-rs--extract-keywords (beg end top-k)
+  "Extract TOP-K keywords from BEG to END using the configured method."
+  (unless (featurep 'jieba-rs-module)
+    (user-error "Jieba native module not loaded"))
+  (let ((k (if (numberp top-k) top-k
+             (read-number "Top K: " 10)))
+        (text (buffer-substring-no-properties beg end)))
+    (if (memq jieba-rs-extract-function '(tfidf textrank))
+        (jieba-rs-module-extract-keywords
+         text k (symbol-name jieba-rs-extract-function))
+      (jieba-rs-module-segment text jieba-rs-hmm))))
+
 ;;;###autoload
 (defun jieba-rs-extract-keywords-region (start end &optional top-k)
   "Extract TOP-K keywords from region START..END.
 In `textrank' mode, uses TextRank keyword extraction.
 In `precise' mode, uses word segmentation."
   (interactive "r\nP")
-  (unless (featurep 'jieba-rs-module)
-    (user-error "Jieba native module not loaded"))
-  (let* ((k (if (numberp top-k) top-k
-              (read-number "Top K: " 10)))
-         (text (buffer-substring-no-properties start end))
-         (items (cond ((eq jieba-rs-extract-function 'textrank)
-                       (jieba-rs-module-extract-keywords
-                        text k "textrank"))
-                      ((eq jieba-rs-extract-function 'tfidf)
-                       (jieba-rs-module-extract-keywords
-                        text k "tfidf"))
-                      (t
-                       (jieba-rs-module-segment
-                        text jieba-rs-hmm))))
-         (title (format "Region %d..%d — %s" start end
-                        jieba-rs-extract-function)))
+  (let ((items (jieba-rs--extract-keywords start end top-k))
+        (title (format "Region %d..%d — %s" start end
+                       jieba-rs-extract-function)))
     (jieba-rs--display-extract-results items title)))
 
 ;;;###autoload
 (defun jieba-rs-extract-keywords-buffer (&optional top-k)
   "Extract TOP-K keywords from the entire buffer."
   (interactive "P")
-  (unless (featurep 'jieba-rs-module)
-    (user-error "Jieba native module not loaded"))
-  (let* ((k (if (numberp top-k) top-k
-              (read-number "Top K: " 10)))
-         (text (buffer-substring-no-properties
-                (point-min) (point-max)))
-         (items (cond ((eq jieba-rs-extract-function 'textrank)
-                       (jieba-rs-module-extract-keywords
-                        text k "textrank"))
-                      ((eq jieba-rs-extract-function 'tfidf)
-                       (jieba-rs-module-extract-keywords
-                        text k "tfidf"))
-                      (t
-                       (jieba-rs-module-segment
-                        text jieba-rs-hmm))))
-         (title (format "Buffer %s — %s" (buffer-name)
-                        jieba-rs-extract-function)))
+  (let ((items (jieba-rs--extract-keywords (point-min) (point-max) top-k))
+        (title (format "Buffer %s — %s" (buffer-name)
+                       jieba-rs-extract-function)))
     (jieba-rs--display-extract-results items title)))
 
 (defvar jieba-rs-mode-map

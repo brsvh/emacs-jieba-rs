@@ -31,7 +31,7 @@ RUST_FILES := \
 	$(sort $(shell find $(RUST_DIR) -type f -name '*.rs' -print))
 RUST_MODULE := \
 	$(CARGO_TARGET_DIR)/release/libjieba_rs_module.so
-TEST_FILES := $(TEST_DIR)/jieba-rs-tests.el
+TEST_FILES := $(TEST_DIR)/jieba-rs-tests.el $(TEST_DIR)/elfmt-tests.el
 
 # Generated files.
 GENERATED_FILES := \
@@ -219,15 +219,15 @@ check-release-archive: release-archive
 		--eval '$(CHECK_ARCHIVE_INSTALL_ELISP)'
 
 test: module
-	$(EMACS_BATCH) -L $(LISP_DIR) \
-		-l $(TEST_FILES) \
+	$(EMACS_BATCH) -L $(LISP_DIR) -L tools/elfmt \
+		$(foreach file,$(TEST_FILES),-l $(file)) \
 		-f ert-run-tests-batch-and-exit
 
 check: module
 	@set -eu
 	$(CARGO) test --locked
-	$(EMACS_BATCH) -L $(LISP_DIR) \
-		-l $(TEST_FILES) \
+	$(EMACS_BATCH) -L $(LISP_DIR) -L tools/elfmt \
+		$(foreach file,$(TEST_FILES),-l $(file)) \
 		-f ert-run-tests-batch-and-exit
 
 $(JIEBA_RS_MODULE): \

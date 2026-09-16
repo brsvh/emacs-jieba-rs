@@ -293,7 +293,9 @@
 
                             emacs --batch \
                               --init-directory "$initdir" \
+                              -L "${projectRoot}/tools/elfmt" \
                               -l "${projectRoot + /tests/jieba-rs-tests.el}" \
+                              -l "${projectRoot + /tests/elfmt-tests.el}" \
                               -f ert-run-tests-batch-and-exit
                           '';
                         };

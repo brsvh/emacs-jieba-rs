@@ -580,5 +580,16 @@
                          "last")))
       (delete-file file))))
 
+(ert-deftest jieba-rs-tests-tfidf-reuses-current-dictionary ()
+  "A reused extractor observes words added after its initialization."
+  (jieba-rs-module-extract-keywords "关键词缓存测试词" 5 "tfidf")
+  (jieba-rs-module-add-word "关键词缓存测试词" 100 "n")
+  (let ((result (jieba-rs-module-extract-keywords
+                 "关键词缓存测试词" 5 "tfidf")))
+    (should (equal (plist-get (aref result 0) :keyword)
+                   "关键词缓存测试词"))
+    (should (equal result (jieba-rs-module-extract-keywords
+                           "关键词缓存测试词" 5 "tfidf")))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

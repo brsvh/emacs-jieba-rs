@@ -32,6 +32,10 @@ struct Dictionary {
 static JIEBA: LazyLock<Mutex<Dictionary>> =
     LazyLock::new(|| Mutex::new(Dictionary::default()));
 
+static TF_IDF: LazyLock<TfIdf> = LazyLock::new(TfIdf::default);
+static TEXT_RANK: LazyLock<TextRank> =
+    LazyLock::new(TextRank::default);
+
 /// Segment TEXT in precise mode.
 ///
 /// Attempt to cut the sentence most accurately.  Suitable for text
@@ -223,15 +227,15 @@ fn extract_keywords<'a>(
     let dictionary = JIEBA.lock().unwrap();
     let jieba = &dictionary.jieba;
     let keywords = if use_tfidf {
-        TfIdf::default().extract_keywords(jieba, &text, k, vec![])
+        TF_IDF.extract_keywords(jieba, &text, k, vec![])
     } else {
-        TextRank::default().extract_keywords(jieba, &text, k, vec![])
+        TEXT_RANK.extract_keywords(jieba, &text, k, vec![])
     };
     let vec = env.make_vector(keywords.len(), ())?;
     for (i, kw) in keywords.iter().enumerate() {
         let plist = env.list(&[
             env.intern(":keyword")?,
-            kw.keyword.clone().into_lisp(env)?,
+            kw.keyword.as_str().into_lisp(env)?,
             env.intern(":weight")?,
             kw.weight.into_lisp(env)?,
         ])?;

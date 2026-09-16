@@ -784,5 +784,29 @@
                          "new")))
       (delete-file file))))
 
+(ert-deftest jieba-rs-tests-major-mode-clears-display ()
+  "Remove overlays and timers before a major mode resets local state."
+  (with-temp-buffer
+    (insert "我们中出了一个叛徒")
+    (jieba-rs-toggle-boundaries)
+    (jieba-rs-toggle-tags)
+    (jieba-rs--schedule-refresh 'boundaries)
+    (jieba-rs--schedule-refresh 'tags)
+    (let ((overlays (append jieba-rs-boundaries-overlays
+                            jieba-rs-tag-overlays))
+          (boundary-timer jieba-rs--boundaries-timer)
+          (tag-timer jieba-rs--tags-timer))
+      (should overlays)
+      (text-mode)
+      (should-not (seq-some #'overlay-buffer overlays))
+      (should-not (memq boundary-timer timer-idle-list))
+      (should-not (memq tag-timer timer-idle-list))
+      (should-not jieba-rs--boundaries-enabled)
+      (should-not jieba-rs--tags-enabled)
+      (jieba-rs-toggle-tags)
+      (should jieba-rs-tag-overlays)
+      (jieba-rs-mode -1)
+      (should-not (memq #'jieba-rs--clear-display change-major-mode-hook)))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

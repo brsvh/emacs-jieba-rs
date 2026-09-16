@@ -461,6 +461,7 @@ Each token is a vector of start, end, word and optional category."
   (dolist (entry
            '((post-command-hook . jieba-rs--post-command-scroll-check)
              (window-buffer-change-functions . jieba-rs--window-buffer-change)
+             (change-major-mode-hook . jieba-rs--clear-display)
              (kill-buffer-hook . jieba-rs--clear-display)))
     (if (or jieba-rs--boundaries-enabled jieba-rs--tags-enabled)
         (add-hook (car entry) (cdr entry) nil t)

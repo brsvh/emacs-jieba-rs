@@ -593,14 +593,30 @@ With prefix arg PERSIST, append the entry to the user dict file."
           (goto-char target))))))
 
 (defun jieba-rs-forward-sentence (&optional arg)
-  "Move point forward ARG Chinese sentences."
+  "Move point forward ARG Chinese sentences.
+An unterminated final sentence ends at the accessible buffer end."
   (interactive "^p")
-  (re-search-forward "[。！？\n]+" nil t (or arg 1)))
+  (let ((n (or arg 1)))
+    (if (< n 0)
+        (jieba-rs-backward-sentence (- n))
+      (dotimes (_ n)
+        (skip-chars-forward " \t\n\r\f　")
+        (unless (re-search-forward "[。！？\n]+" nil t)
+          (goto-char (point-max)))))))
 
 (defun jieba-rs-backward-sentence (&optional arg)
-  "Move point backward ARG Chinese sentences."
+  "Move point backward ARG Chinese sentences.
+Stop at the sentence start, skipping its trailing punctuation."
   (interactive "^p")
-  (re-search-backward "[。！？\n]+" nil t (or arg 1)))
+  (let ((n (or arg 1)))
+    (if (< n 0)
+        (jieba-rs-forward-sentence (- n))
+      (dotimes (_ n)
+        (skip-chars-backward "。！？ \t\n\r\f　")
+        (if (re-search-backward "[。！？\n]+" nil t)
+            (goto-char (match-end 0))
+          (goto-char (point-min)))
+        (skip-chars-forward " \t\r\f　")))))
 
 ;;;###autoload
 (defun jieba-rs-toggle-boundaries ()

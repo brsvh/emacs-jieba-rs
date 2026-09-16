@@ -310,7 +310,7 @@
     (jieba-rs-mode 1)
     (goto-char (point-min))
     (jieba-rs-forward-sentence)
-    (should (>= (point) 4))))
+    (should (= (point) 4))))
 
 (ert-deftest jieba-rs-tests-backward-sentence ()
   "Moving backward by Chinese sentence."
@@ -319,7 +319,7 @@
     (jieba-rs-mode 1)
     (goto-char (point-max))
     (jieba-rs-backward-sentence)
-    (should (>= (point) 4))))
+    (should (= (point) 4))))
 
 (ert-deftest jieba-rs-tests-extract-keywords ()
   "TextRank returns keyword plists with :keyword and :weight."
@@ -432,6 +432,30 @@
         (insert "abc")
         (should (equal (jieba-rs--normalize-text (point-min) (point-max))
                        (cdr case)))))))
+
+(ert-deftest jieba-rs-tests-sentence-boundaries ()
+  "Handle unterminated sentences, counts, narrowing and both ends."
+  (with-temp-buffer
+    (insert "你好。  世界！\n没有句号")
+    (goto-char (point-min))
+    (jieba-rs-forward-sentence 3)
+    (should (= (point) (point-max)))
+    (jieba-rs-forward-sentence)
+    (should (= (point) (point-max)))
+    (jieba-rs-backward-sentence)
+    (should (looking-at-p "没有句号"))
+    (jieba-rs-forward-sentence -1)
+    (should (looking-at-p "世界"))
+    (jieba-rs-backward-sentence 2)
+    (should (= (point) (point-min)))
+    (jieba-rs-backward-sentence -1)
+    (should (= (point) 4))
+    (narrow-to-region 10 (point-max))
+    (goto-char (point-min))
+    (jieba-rs-forward-sentence)
+    (should (= (point) (point-max)))
+    (jieba-rs-backward-sentence)
+    (should (= (point) (point-min)))))
 
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

@@ -248,12 +248,12 @@ or t for the default fallback.  RULES is a list of (REGEXP
   "Normalize text in region BEG..END for overlay segmentation.
 Respects `jieba-rs-normalize-rules' for the current major mode."
   (let ((text (buffer-substring-no-properties beg end))
-        (rules (cdr (or (cl-find major-mode
-                                 jieba-rs-normalize-rules
-                                 :test #'derived-mode-p
-                                 :key #'car)
-                        (assq t
-                              jieba-rs-normalize-rules)))))
+        (rules (cdr (or (cl-find-if
+                         (lambda (entry)
+                           (and (not (eq (car entry) t))
+                                (derived-mode-p (car entry))))
+                         jieba-rs-normalize-rules)
+                        (assq t jieba-rs-normalize-rules)))))
     (dolist (rule rules)
       (setq text (replace-regexp-in-string
                   (car rule) (cdr rule) text)))

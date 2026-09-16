@@ -416,5 +416,22 @@
   (should (equal (jieba-rs-module-segment "正常测试" nil)
                  ["正常" "测试"])))
 
+(ert-deftest jieba-rs-tests-normalization-selects-mode ()
+  "Prefer matching modes over unrelated rules and the fallback."
+  (let ((jieba-rs-normalize-rules
+         '((t ("a" . " "))
+           (org-mode ("." . " "))
+           (emacs-lisp-mode ("c" . " "))
+           (text-mode ("b" . " ")))))
+    (dolist (case '((text-mode . "a c")
+                    (emacs-lisp-mode . "ab ")
+                    (lisp-interaction-mode . "ab ")
+                    (fundamental-mode . " bc")))
+      (with-temp-buffer
+        (funcall (car case))
+        (insert "abc")
+        (should (equal (jieba-rs--normalize-text (point-min) (point-max))
+                       (cdr case)))))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

@@ -621,20 +621,25 @@ Each token is a vector of start, end, word and optional category."
           (current-buffer) (or window (get-buffer-window nil t))
           function timer-variable))))
 
+(defun jieba-rs--delete-display-overlays (overlays-variable timer-variable)
+  "Clear OVERLAYS-VARIABLE and cancel its pending TIMER-VARIABLE."
+  (mapc #'delete-overlay (symbol-value overlays-variable))
+  (when (symbol-value timer-variable)
+    (cancel-timer (symbol-value timer-variable)))
+  (set overlays-variable nil)
+  (set timer-variable nil))
+
 (defun jieba-rs--clear-boundaries ()
   "Disable boundaries display and cancel scheduled refresh."
-  (mapc #'delete-overlay jieba-rs-boundaries-overlays)
-  (when jieba-rs--boundaries-timer
-    (cancel-timer jieba-rs--boundaries-timer))
-  (setq jieba-rs-boundaries-overlays nil
-        jieba-rs--boundaries-timer nil
-        jieba-rs--boundaries-enabled nil)
+  (jieba-rs--delete-display-overlays
+   'jieba-rs-boundaries-overlays 'jieba-rs--boundaries-timer)
+  (setq jieba-rs--boundaries-enabled nil)
   (jieba-rs--update-display-hooks))
 
 (defun jieba-rs--boundaries-after-change (&rest _)
   "Clear boundaries and schedule a visible-window refresh."
-  (mapc #'delete-overlay jieba-rs-boundaries-overlays)
-  (setq jieba-rs-boundaries-overlays nil)
+  (jieba-rs--delete-display-overlays
+   'jieba-rs-boundaries-overlays 'jieba-rs--boundaries-timer)
   (jieba-rs--schedule-refresh
    'boundaries nil (if (> (buffer-size) 10000) 0.15 0)))
 
@@ -645,51 +650,28 @@ Each token is a vector of start, end, word and optional category."
 
 (defun jieba-rs--refresh-boundaries ()
   "Rebuild boundary overlays for all windows showing this buffer."
-  (when jieba-rs--boundaries-timer
-    (cancel-timer jieba-rs--boundaries-timer))
-  (setq jieba-rs--boundaries-timer nil)
-  (mapc #'delete-overlay jieba-rs-boundaries-overlays)
-  (setq jieba-rs-boundaries-overlays nil)
   (jieba-rs--show-boundaries))
 
 (defun jieba-rs--show-boundaries ()
   "Show word boundaries in the current buffer."
-  (setq jieba-rs--boundaries-enabled t)
-  (jieba-rs--map-visible-tokens
-   (lambda (token)
-     (let* ((pos (aref token 1))
-            (ov (make-overlay pos pos)))
-       (overlay-put ov 'priority 0)
-       (overlay-put ov 'after-string
-                    (propertize jieba-rs-boundary-separator
-                                'face 'jieba-rs-boundary-face))
-       (push ov jieba-rs-boundaries-overlays))))
-  (jieba-rs--update-display-hooks))
+  (jieba-rs--show-display nil))
 
 (defun jieba-rs--clear-tags ()
   "Disable tags display and cancel scheduled refresh."
-  (mapc #'delete-overlay jieba-rs-tag-overlays)
-  (when jieba-rs--tags-timer
-    (cancel-timer jieba-rs--tags-timer))
-  (setq jieba-rs-tag-overlays nil
-        jieba-rs--tags-timer nil
-        jieba-rs--tags-enabled nil)
+  (jieba-rs--delete-display-overlays
+   'jieba-rs-tag-overlays 'jieba-rs--tags-timer)
+  (setq jieba-rs--tags-enabled nil)
   (jieba-rs--update-display-hooks))
 
 (defun jieba-rs--tags-after-change (&rest _)
   "Clear tags and schedule a visible-window refresh."
-  (mapc #'delete-overlay jieba-rs-tag-overlays)
-  (setq jieba-rs-tag-overlays nil)
+  (jieba-rs--delete-display-overlays
+   'jieba-rs-tag-overlays 'jieba-rs--tags-timer)
   (jieba-rs--schedule-refresh
    'tags nil (if (> (buffer-size) 10000) 0.15 0)))
 
 (defun jieba-rs--refresh-tags ()
   "Rebuild tag overlays for all windows showing this buffer."
-  (when jieba-rs--tags-timer
-    (cancel-timer jieba-rs--tags-timer))
-  (setq jieba-rs--tags-timer nil)
-  (mapc #'delete-overlay jieba-rs-tag-overlays)
-  (setq jieba-rs-tag-overlays nil)
   (jieba-rs--show-tags))
 
 (defun jieba-rs--tags-window-scroll (window _new-start)
@@ -699,20 +681,43 @@ Each token is a vector of start, end, word and optional category."
 
 (defun jieba-rs--show-tags ()
   "Show POS tags in the current buffer."
-  (setq jieba-rs--tags-enabled t)
-  (jieba-rs--map-visible-tokens
-   (lambda (token)
-     (let* ((pos (aref token 1))
-            (cat (aref token 3))
-            (label (or (cdr (assoc cat jieba-rs-tag-names)) cat))
-            (ov (make-overlay pos pos)))
-       (overlay-put ov 'priority 1)
-       (overlay-put ov 'after-string
-                    (propertize label 'display '(raise -0.3)
-                                'face 'jieba-rs-tag-face))
-       (push ov jieba-rs-tag-overlays)))
-   t)
-  (jieba-rs--update-display-hooks))
+  (jieba-rs--show-display t))
+
+(defun jieba-rs--show-display (tagged)
+  "Rebuild a complete display, with POS labels when TAGGED is non-nil.
+On failure, discard partial overlays and retain the previous enabled state
+so an already enabled display can retry after the text is corrected."
+  (let ((overlays-variable (if tagged 'jieba-rs-tag-overlays
+                             'jieba-rs-boundaries-overlays))
+        (timer-variable (if tagged 'jieba-rs--tags-timer
+                          'jieba-rs--boundaries-timer))
+        (enabled-variable (if tagged 'jieba-rs--tags-enabled
+                            'jieba-rs--boundaries-enabled))
+        complete)
+    (jieba-rs--delete-display-overlays overlays-variable timer-variable)
+    (unwind-protect
+        (progn
+          (jieba-rs--map-visible-tokens
+           (lambda (token)
+             (let* ((pos (aref token 1))
+                    (ov (make-overlay pos pos)))
+               (set overlays-variable (cons ov (symbol-value overlays-variable)))
+               (overlay-put ov 'priority (if tagged 1 0))
+               (overlay-put
+                ov 'after-string
+                (if tagged
+                    (let* ((cat (aref token 3))
+                           (label (or (cdr (assoc cat jieba-rs-tag-names)) cat)))
+                      (propertize label 'display '(raise -0.3)
+                                  'face 'jieba-rs-tag-face))
+                  (propertize jieba-rs-boundary-separator
+                              'face 'jieba-rs-boundary-face)))))
+           tagged)
+          (set enabled-variable t)
+          (setq complete t))
+      (unless complete
+        (jieba-rs--delete-display-overlays overlays-variable timer-variable))
+      (jieba-rs--update-display-hooks))))
 
 (defun jieba-rs--post-command-scroll-check ()
   "Schedule refreshes after commands that change the view."

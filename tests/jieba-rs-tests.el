@@ -1290,5 +1290,43 @@
           (should-not (memq #'jieba-rs--window-change window-size-change-functions))
           (should-not jieba-rs--display-restriction))))))
 
+(ert-deftest jieba-rs-tests-display-failure-cleans-partial-overlays ()
+  "Roll back first activation and allow an enabled display to recover."
+  (save-window-excursion
+    (dolist (tagged '(nil t))
+      (with-temp-buffer
+        (switch-to-buffer (current-buffer))
+        (insert "中国北京\n" (string #x3fff80))
+        (let ((toggle (if tagged #'jieba-rs-toggle-tags
+                        #'jieba-rs-toggle-boundaries))
+              (enabled (if tagged 'jieba-rs--tags-enabled
+                         'jieba-rs--boundaries-enabled))
+              (timer-var (if tagged 'jieba-rs--tags-timer
+                           'jieba-rs--boundaries-timer))
+              (hook (if tagged #'jieba-rs--tags-after-change
+                      #'jieba-rs--boundaries-after-change)))
+          (should-error (funcall toggle) :type 'wrong-type-argument)
+          (should-not (symbol-value enabled))
+          (should-not (overlays-in (point-min) (point-max)))
+          (should-not (memq hook after-change-functions))
+          (delete-region (1- (point-max)) (point-max))
+          (funcall toggle)
+          (should (symbol-value enabled))
+          (should (overlays-in (point-min) (point-max)))
+          (goto-char (point-max))
+          (insert (string #x3fff80))
+          (let ((timer (symbol-value timer-var)))
+            (should-error (apply (timer--function timer) (timer--args timer))
+                          :type 'wrong-type-argument))
+          (should (symbol-value enabled))
+          (should (memq hook after-change-functions))
+          (should-not (overlays-in (point-min) (point-max)))
+          (delete-region (1- (point-max)) (point-max))
+          (let ((timer (symbol-value timer-var)))
+            (should (timerp timer))
+            (apply (timer--function timer) (timer--args timer)))
+          (should (overlays-in (point-min) (point-max)))
+          (should-not (symbol-value timer-var)))))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

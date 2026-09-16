@@ -344,11 +344,15 @@ fn extract_keywords<'a>(
     } else {
         10
     };
+    let use_tfidf = method.is_not_nil()
+        && method.into_rust::<LispString>()?.0 == "tfidf";
+    // Validate all arguments before skipping work for empty results.
+    if k == 0 || text.is_empty() {
+        return env.make_vector(0, ());
+    }
     // At most one keyword can start at each input character.  Bound
     // upstream result allocation even for an arbitrarily large K.
     let k = k.min(text.chars().count());
-    let use_tfidf = method.is_not_nil()
-        && method.into_rust::<LispString>()?.0 == "tfidf";
     let dictionary = JIEBA.lock().unwrap();
     let jieba = &dictionary.jieba;
     let keywords = if use_tfidf {

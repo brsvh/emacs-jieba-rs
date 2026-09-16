@@ -262,6 +262,9 @@ Word motion and explicit segmentation commands always use the full text."
 (defvar-local jieba-rs--display-configuration nil
   "Options observed by the enabled displays.")
 
+(defvar-local jieba-rs--display-visible-ranges nil
+  "Visible text ranges observed by the enabled displays.")
+
 (defvar-local jieba-rs-boundaries-overlays nil
   "List of word boundary overlays in the current buffer.")
 
@@ -507,10 +510,27 @@ Each token is a vector of start, end, word and optional category."
                     (point)))))
     (cdr jieba-rs--content-end-cache)))
 
+(defun jieba-rs--visible-text-ranges ()
+  "Return window ranges with invisible text excluded."
+  (let (visible)
+    (dolist (range (jieba-rs--visible-ranges))
+      (let ((position (car range))
+            (end (cdr range)))
+        (while (< position end)
+          (let ((next (next-single-char-property-change
+                       position 'invisible nil end)))
+            (unless (invisible-p position)
+              (if (and visible (= (cdar visible) position))
+                  (setcdr (car visible) next)
+                (push (cons position next) visible)))
+            (setq position next)))))
+    (nreverse visible)))
+
 (defun jieba-rs--map-visible-tokens (function &optional tagged)
   "Call FUNCTION for visible normalized tokens, optionally TAGGED."
-  (let* ((ranges (jieba-rs--visible-ranges))
+  (let* ((ranges (jieba-rs--visible-text-ranges))
          (content-end (jieba-rs--content-end)))
+    (setq jieba-rs--display-visible-ranges ranges)
     ;; Retain raw motion, normalized boundaries and tags for each line.
     (setq jieba-rs--segment-cache-limit
           (max 128 (* 3 (cl-loop for (beg . end) in ranges
@@ -533,7 +553,8 @@ Each token is a vector of start, end, word and optional category."
                            for token = (aref tokens index)
                            for pos = (aref token 1)
                            while (if tagged (<= pos limit) (< pos limit))
-                           unless (string-blank-p (aref token 2))
+                           unless (or (string-blank-p (aref token 2))
+                                      (invisible-p (1- pos)))
                            do (funcall function token))))
               (goto-char (min (point-max) (1+ line-end))))))))
     (jieba-rs--trim-segment-cache)))
@@ -586,6 +607,8 @@ Each token is a vector of start, end, word and optional category."
         (setq jieba-rs--display-configuration
               (copy-tree (jieba-rs--display-options))))
     (setq jieba-rs--display-configuration nil))
+  (unless (or jieba-rs--boundaries-enabled jieba-rs--tags-enabled)
+    (setq jieba-rs--display-visible-ranges nil))
   (setq jieba-rs--display-restriction
         (when (or jieba-rs--boundaries-enabled jieba-rs--tags-enabled)
           (cons (point-min) (point-max))))
@@ -603,6 +626,7 @@ Each token is a vector of start, end, word and optional category."
       (remove-hook (nth 1 entry) (nth 2 entry) t)))
   (dolist (entry
            '((post-command-hook . jieba-rs--post-command-scroll-check)
+             (pre-redisplay-functions . jieba-rs--redisplay)
              (clone-indirect-buffer-hook . jieba-rs--initialize-clone)
              (window-buffer-change-functions . jieba-rs--window-change)
              (window-size-change-functions . jieba-rs--window-change)
@@ -625,6 +649,7 @@ Each token is a vector of start, end, word and optional category."
         jieba-rs--segment-cache-limit 128
         jieba-rs--segment-cache-clock 0
         jieba-rs--content-end-cache nil
+        jieba-rs--display-visible-ranges nil
         jieba-rs--display-configuration nil)
   (jieba-rs--update-display-hooks)
   (when jieba-rs--boundaries-enabled
@@ -663,6 +688,19 @@ Each token is a vector of start, end, word and optional category."
             (jieba-rs--boundaries-after-change))
           (when jieba-rs--tags-enabled
             (jieba-rs--tags-after-change)))))))
+
+(defun jieba-rs--redisplay (window)
+  "Schedule a refresh when visible text in WINDOW changes.
+This observes folding through overlays or text properties, including
+changes to `buffer-invisibility-spec' without text edits."
+  (with-current-buffer (window-buffer window)
+    (let ((ranges (jieba-rs--visible-text-ranges)))
+      (unless (equal ranges jieba-rs--display-visible-ranges)
+        (setq jieba-rs--display-visible-ranges ranges)
+        (when (and jieba-rs--boundaries-enabled (not jieba-rs--boundaries-timer))
+          (jieba-rs--schedule-refresh 'boundaries window))
+        (when (and jieba-rs--tags-enabled (not jieba-rs--tags-timer))
+          (jieba-rs--schedule-refresh 'tags window))))))
 
 (defun jieba-rs--window-change (window)
   "Refresh enabled displays after WINDOW changes its buffer or size."

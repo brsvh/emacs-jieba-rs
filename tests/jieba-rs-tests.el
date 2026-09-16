@@ -27,6 +27,7 @@
 (require 'jieba-rs)
 (require 'jieba-rs-module)
 (require 'seq)
+(require 'outline)
 
 (defun jieba-rs-tests--run-native-child (form)
   "Evaluate FORM in a fresh module process, failing after 15 seconds."
@@ -1087,6 +1088,77 @@
                 (jieba-rs--refresh-tags)
                 (should (= characters initial))))
           (jieba-rs--clear-display))))))
+
+(ert-deftest jieba-rs-tests-display-skips-folded-lines ()
+  "Keep segmentation and overlays bounded when a large body is folded."
+  (with-temp-buffer
+    (insert "* 标题\n" (apply #'concat (make-list 10000 "中国\n")) "* 结尾\n")
+    (outline-mode)
+    (outline-hide-body)
+    (let ((segment (symbol-function 'jieba-rs-module-segment-tag))
+          (calls 0))
+      (cl-letf (((symbol-function 'jieba-rs-module-segment-tag)
+                 (lambda (&rest args)
+                   (cl-incf calls)
+                   (apply segment args))))
+        (jieba-rs-toggle-tags)
+        (should (<= calls 3))
+        (should (= (length jieba-rs-tag-overlays) 4))
+        (should (= jieba-rs--segment-cache-limit 128))
+        (dolist (overlay jieba-rs-tag-overlays)
+          (should-not (invisible-p (1- (overlay-start overlay))))))
+      ;; A hidden edit must not bring the hidden body into the display.
+      (goto-char 10)
+      (insert "北京")
+      (setq calls 0)
+      (cl-letf (((symbol-function 'jieba-rs-module-segment-tag)
+                 (lambda (&rest args)
+                   (cl-incf calls)
+                   (apply segment args))))
+        (jieba-rs--refresh-tags)
+        (should (<= calls 3))
+        (should (= (length jieba-rs-tag-overlays) 4))))))
+
+(ert-deftest jieba-rs-tests-display-observes-invisibility ()
+  "Refresh both displays when overlays or visibility settings change."
+  (save-window-excursion
+    (with-temp-buffer
+      (switch-to-buffer (current-buffer))
+      (insert "中国北京上海深圳\n")
+      (let ((hidden (make-overlay 3 5))
+            (window (selected-window)))
+        (overlay-put hidden 'invisible 'jieba-test)
+        (setq-local buffer-invisibility-spec nil)
+        (jieba-rs-toggle-boundaries)
+        (jieba-rs-toggle-tags)
+        (should (= (length jieba-rs-tag-overlays) 4))
+        (dolist (operation '(spec hide show property unproperty))
+          (pcase operation
+            ('spec (setq buffer-invisibility-spec '(jieba-test)))
+            ('hide (move-overlay hidden 1 (point-max)))
+            ('show (delete-overlay hidden))
+            ('property (put-text-property 3 5 'invisible 'jieba-test))
+            ('unproperty (remove-text-properties 3 5 '(invisible nil))))
+          (run-hook-with-args 'pre-redisplay-functions window)
+          (should jieba-rs--boundaries-timer)
+          (should jieba-rs--tags-timer)
+          ;; Repeated redisplay must not postpone an already pending timer.
+          (let ((timer jieba-rs--tags-timer))
+            (run-hook-with-args 'pre-redisplay-functions window)
+            (should (eq timer jieba-rs--tags-timer)))
+          (jieba-rs--refresh-boundaries)
+          (jieba-rs--refresh-tags)
+          (should (equal (sort (mapcar #'overlay-start jieba-rs-tag-overlays) #'<)
+                         (pcase operation
+                           ((or 'spec 'property) '(3 7 9))
+                           ('hide nil)
+                           (_ '(3 5 7 9)))))
+          (dolist (overlay (append jieba-rs-boundaries-overlays
+                                   jieba-rs-tag-overlays))
+            (should-not (invisible-p (1- (overlay-start overlay))))))
+        (jieba-rs--clear-display)
+        (should-not jieba-rs--display-visible-ranges)
+        (should-not (memq #'jieba-rs--redisplay pre-redisplay-functions))))))
 
 (ert-deftest jieba-rs-tests-displays-share-tagged-lines ()
   "Share POS segmentation in either refresh order and retain raw motion."

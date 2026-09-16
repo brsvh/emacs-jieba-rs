@@ -241,6 +241,9 @@ Word motion and explicit segmentation commands always use the full text."
 (defvar-local jieba-rs--tags-enabled nil
   "Whether part-of-speech display is enabled in this buffer.")
 
+(defvar-local jieba-rs--display-restriction nil
+  "Accessible bounds observed by the enabled displays.")
+
 (defvar-local jieba-rs-boundaries-overlays nil
   "List of word boundary overlays in the current buffer.")
 
@@ -535,6 +538,9 @@ Each token is a vector of start, end, word and optional category."
 
 (defun jieba-rs--update-display-hooks ()
   "Keep refresh and cleanup hooks consistent with display state."
+  (setq jieba-rs--display-restriction
+        (when (or jieba-rs--boundaries-enabled jieba-rs--tags-enabled)
+          (cons (point-min) (point-max))))
   (dolist (entry
            '((jieba-rs--boundaries-enabled after-change-functions
                                            jieba-rs--boundaries-after-change)
@@ -549,7 +555,8 @@ Each token is a vector of start, end, word and optional category."
       (remove-hook (nth 1 entry) (nth 2 entry) t)))
   (dolist (entry
            '((post-command-hook . jieba-rs--post-command-scroll-check)
-             (window-buffer-change-functions . jieba-rs--window-buffer-change)
+             (window-buffer-change-functions . jieba-rs--window-change)
+             (window-size-change-functions . jieba-rs--window-change)
              (change-major-mode-hook . jieba-rs--clear-display)
              (kill-buffer-hook . jieba-rs--clear-display)))
     (if (or jieba-rs--boundaries-enabled jieba-rs--tags-enabled)
@@ -574,8 +581,8 @@ Each token is a vector of start, end, word and optional category."
       (when jieba-rs--tags-enabled
         (jieba-rs--tags-after-change)))))
 
-(defun jieba-rs--window-buffer-change (window)
-  "Refresh enabled displays when WINDOW starts showing this buffer."
+(defun jieba-rs--window-change (window)
+  "Refresh enabled displays after WINDOW changes its buffer or size."
   (with-current-buffer (window-buffer window)
     (when jieba-rs--boundaries-enabled
       (jieba-rs--schedule-refresh 'boundaries window))
@@ -600,6 +607,7 @@ Each token is a vector of start, end, word and optional category."
 
 (defun jieba-rs--schedule-refresh (kind &optional window delay)
   "Schedule a refresh of KIND in WINDOW after idle DELAY seconds."
+  (setq jieba-rs--display-restriction (cons (point-min) (point-max)))
   (let* ((boundaries (eq kind 'boundaries))
          (timer-variable (if boundaries 'jieba-rs--boundaries-timer
                            'jieba-rs--tags-timer))
@@ -708,9 +716,12 @@ Each token is a vector of start, end, word and optional category."
 
 (defun jieba-rs--post-command-scroll-check ()
   "Schedule refreshes after commands that change the view."
-  (when (memq this-command
-              '(recenter recenter-top-bottom
-                         beginning-of-buffer end-of-buffer))
+  (when (or (not (equal jieba-rs--display-restriction
+                        (cons (point-min) (point-max))))
+            (memq this-command
+                  '(recenter recenter-top-bottom
+                             beginning-of-buffer end-of-buffer)))
+    (setq jieba-rs--display-restriction (cons (point-min) (point-max)))
     (when jieba-rs--boundaries-enabled
       (jieba-rs--schedule-refresh 'boundaries))
     (when jieba-rs--tags-enabled

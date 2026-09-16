@@ -1346,5 +1346,37 @@
                          "原词 100 n\n")))
       (delete-file jieba-rs-user-dict))))
 
+(ert-deftest jieba-rs-tests-refresh-reuses-trailing-whitespace-scan ()
+  "Reuse the tail scan across refreshes and invalidate it when needed."
+  (with-temp-buffer
+    (insert "中国北京\n" (make-string 10000 ?\s))
+    (let ((scan (symbol-function 'skip-chars-backward))
+          (scans 0))
+      (cl-letf (((symbol-function 'skip-chars-backward)
+                 (lambda (&rest args)
+                   (cl-incf scans)
+                   (apply scan args)))
+                ((symbol-function 'jieba-rs--visible-ranges)
+                 (lambda () '((1 . 6)))))
+        (dotimes (_ 3)
+          (jieba-rs--map-visible-tokens #'ignore)
+          (jieba-rs--map-visible-tokens #'ignore t))
+        (should (= scans 1))
+        (should (= (jieba-rs--content-end) 5))
+        ;; An equal-size edit must invalidate the cached text position.
+        (goto-char (point-max))
+        (delete-char -1)
+        (insert "新")
+        (should (= (jieba-rs--content-end) (point-max)))
+        (should (= scans 2))
+        (narrow-to-region 1 4)
+        (should (= (jieba-rs--content-end) 4))
+        (should (= scans 3))
+        (widen)
+        (should (= (jieba-rs--content-end) (point-max)))
+        (should (= scans 4))
+        (jieba-rs--clear-display)
+        (should-not jieba-rs--content-end-cache)))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

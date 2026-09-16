@@ -235,6 +235,9 @@ Word motion and explicit segmentation commands always use the full text."
 (defvar-local jieba-rs--segment-cache-clock 0
   "Sequence number of the last segmentation cache access.")
 
+(defvar-local jieba-rs--content-end-cache nil
+  "Last nonblank end, keyed by text modification tick and accessible bounds.")
+
 (defvar-local jieba-rs--boundaries-enabled nil
   "Whether boundary display is enabled in this buffer.")
 
@@ -469,13 +472,22 @@ Each token is a vector of start, end, word and optional category."
         (nreverse merged))
     (list (jieba-rs--visible-range))))
 
+(defun jieba-rs--content-end ()
+  "Return the accessible end without trailing whitespace, using a cache."
+  (let ((context (list (buffer-chars-modified-tick) (point-min) (point-max))))
+    (unless (equal context (car jieba-rs--content-end-cache))
+      (setq jieba-rs--content-end-cache
+            (cons context
+                  (save-excursion
+                    (goto-char (point-max))
+                    (skip-chars-backward " \t\n\r\f　")
+                    (point)))))
+    (cdr jieba-rs--content-end-cache)))
+
 (defun jieba-rs--map-visible-tokens (function &optional tagged)
   "Call FUNCTION for visible normalized tokens, optionally TAGGED."
   (let* ((ranges (jieba-rs--visible-ranges))
-         (content-end (save-excursion
-                        (goto-char (point-max))
-                        (skip-chars-backward " \t\n\r\f　")
-                        (point))))
+         (content-end (jieba-rs--content-end)))
     ;; Retain raw motion, normalized boundaries and tags for each line.
     (setq jieba-rs--segment-cache-limit
           (max 128 (* 3 (cl-loop for (beg . end) in ranges
@@ -568,6 +580,7 @@ Each token is a vector of start, end, word and optional category."
   (jieba-rs--clear-boundaries)
   (jieba-rs--clear-tags)
   (setq jieba-rs--segment-cache nil
+        jieba-rs--content-end-cache nil
         jieba-rs--segment-cache-context nil
         jieba-rs--segment-cache-limit 128
         jieba-rs--segment-cache-clock 0))

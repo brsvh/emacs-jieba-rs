@@ -797,6 +797,68 @@
     (should-not (memq boundary-timer timer-idle-list))
     (should-not (memq tag-timer timer-idle-list))))
 
+(ert-deftest jieba-rs-tests-clone-owns-display-state ()
+  "Keep cloned overlays and caches independent through either cleanup."
+  (dolist (cleanup '(disable kill major-mode))
+    (with-temp-buffer
+      (insert "中国北京\n")
+      (jieba-rs-toggle-boundaries)
+      (jieba-rs-toggle-tags)
+      (let* ((source (current-buffer))
+             (overlays (append jieba-rs-boundaries-overlays jieba-rs-tag-overlays))
+             (cache jieba-rs--segment-cache)
+             (clone (clone-indirect-buffer " *jieba-clone*" nil)))
+        (unwind-protect
+            (progn
+              (with-current-buffer clone
+                (should jieba-rs--boundaries-enabled)
+                (should jieba-rs--tags-enabled)
+                (should-not jieba-rs-boundaries-overlays)
+                (should-not jieba-rs-tag-overlays)
+                (should-not jieba-rs--segment-cache)
+                (jieba-rs--refresh-boundaries)
+                (jieba-rs--refresh-tags)
+                (should-not (eq cache jieba-rs--segment-cache))
+                (dolist (overlay (append jieba-rs-boundaries-overlays
+                                         jieba-rs-tag-overlays))
+                  (should (eq (overlay-buffer overlay) clone))))
+              (pcase cleanup
+                ('disable (with-current-buffer clone (jieba-rs-mode -1)))
+                ('kill (kill-buffer clone))
+                ('major-mode (with-current-buffer clone (text-mode))))
+              (dolist (overlay overlays)
+                (should (eq (overlay-buffer overlay) source)))
+              ;; Clearing the source must likewise leave a rebuilt clone alone.
+              (when (buffer-live-p clone)
+                (with-current-buffer clone (jieba-rs--show-tags))
+                (jieba-rs-mode -1)
+                (with-current-buffer clone
+                  (should jieba-rs-tag-overlays)
+                  (dolist (overlay jieba-rs-tag-overlays)
+                    (should (eq (overlay-buffer overlay) clone))))))
+          (when (buffer-live-p clone) (kill-buffer clone)))))))
+
+(ert-deftest jieba-rs-tests-clone-preserves-source-timers ()
+  "Do not cancel source refreshes when cleaning up a new clone."
+  (with-temp-buffer
+    (insert "中国北京\n")
+    (jieba-rs-toggle-boundaries)
+    (jieba-rs-toggle-tags)
+    (jieba-rs--schedule-refresh 'boundaries)
+    (jieba-rs--schedule-refresh 'tags)
+    (let* ((boundary-timer jieba-rs--boundaries-timer)
+           (tag-timer jieba-rs--tags-timer)
+           (clone (clone-indirect-buffer " *jieba-clone-timers*" nil)))
+      (unwind-protect
+          (with-current-buffer clone
+            (should jieba-rs--boundaries-timer)
+            (should jieba-rs--tags-timer)
+            (should-not (eq boundary-timer jieba-rs--boundaries-timer))
+            (should-not (eq tag-timer jieba-rs--tags-timer)))
+        (kill-buffer clone))
+      (should (memq boundary-timer timer-idle-list))
+      (should (memq tag-timer timer-idle-list)))))
+
 (ert-deftest jieba-rs-tests-persist-separates-records ()
   "Keep records separate in empty and unterminated dictionaries."
   (dolist (initial '("" "甲乙 10 nz" "甲乙 10 nz\n"))

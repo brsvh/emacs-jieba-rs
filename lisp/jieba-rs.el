@@ -592,6 +592,7 @@ Each token is a vector of start, end, word and optional category."
       (remove-hook (nth 1 entry) (nth 2 entry) t)))
   (dolist (entry
            '((post-command-hook . jieba-rs--post-command-scroll-check)
+             (clone-indirect-buffer-hook . jieba-rs--initialize-clone)
              (window-buffer-change-functions . jieba-rs--window-change)
              (window-size-change-functions . jieba-rs--window-change)
              (change-major-mode-hook . jieba-rs--clear-display)
@@ -599,6 +600,26 @@ Each token is a vector of start, end, word and optional category."
     (if (or jieba-rs--boundaries-enabled jieba-rs--tags-enabled)
         (add-hook (car entry) (cdr entry) nil t)
       (remove-hook (car entry) (cdr entry) t))))
+
+(defun jieba-rs--initialize-clone ()
+  "Give an indirect clone its own display objects and segmentation cache."
+  ;; These objects still belong to the source buffer.  Do not delete them
+  ;; or cancel its timers when discarding the inherited references.
+  (setq jieba-rs-boundaries-overlays nil
+        jieba-rs-tag-overlays nil
+        jieba-rs--boundaries-timer nil
+        jieba-rs--tags-timer nil
+        jieba-rs--segment-cache nil
+        jieba-rs--segment-cache-context nil
+        jieba-rs--segment-cache-limit 128
+        jieba-rs--segment-cache-clock 0
+        jieba-rs--content-end-cache nil
+        jieba-rs--display-configuration nil)
+  (jieba-rs--update-display-hooks)
+  (when jieba-rs--boundaries-enabled
+    (jieba-rs--schedule-refresh 'boundaries))
+  (when jieba-rs--tags-enabled
+    (jieba-rs--schedule-refresh 'tags)))
 
 (defun jieba-rs--clear-display ()
   "Disable both displays and cancel their pending refreshes."

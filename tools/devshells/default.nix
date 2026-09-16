@@ -53,7 +53,7 @@ let
   ];
 in
 {
-  files = {
+  files = rec {
     editorconfig = rec {
       data = {
         root = true;
@@ -124,105 +124,115 @@ in
       path = ".editorconfig";
     };
 
-    prek = rec {
-      data = {
-        default_install_hook_types = [
-          "pre-commit"
+    prek =
+      let
+        formatter = import ../formatter.nix {
+          inherit lib pkgs;
+          treefmtConfig = {
+            file = treefmt.generator treefmt.data;
+            inherit (treefmt) packages;
+          };
+        };
+      in
+      rec {
+        data = {
+          default_install_hook_types = [
+            "pre-commit"
+          ];
+
+          repos = [
+            {
+              repo = "local";
+
+              hooks = [
+                {
+                  entry = "${getExe formatter} --fail-on-change";
+                  id = "treefmt";
+                  language = "system";
+                  name = "treefmt";
+                  require_serial = true;
+
+                  stages = [
+                    "pre-commit"
+                  ];
+                }
+              ];
+            }
+          ];
+        };
+
+        deps = [
+          "treefmt"
         ];
 
-        repos = [
-          {
-            repo = "local";
+        generator =
+          data: (toml { }).generate (baseNameOf path) data;
 
-            hooks = [
-              {
-                entry = "treefmt --fail-on-change";
-                id = "treefmt";
-                language = "system";
-                name = "treefmt";
+        hook =
+          let
+            inherit (pkgs)
+              git
+              prek
+              runtimeShell
+              writeScript
+              ;
 
-                stages = [
-                  "pre-commit"
-                ];
-              }
-            ];
-          }
-        ];
-      };
-
-      deps = [
-        "treefmt"
-      ];
-
-      generator =
-        data: (toml { }).generate (baseNameOf path) data;
-
-      hook =
-        let
-          inherit (pkgs)
-            git
-            prek
-            runtimeShell
-            writeScript
-            ;
-
-          mkInstall = stage: ''
-            if gitDir="$(
-              ${getExe git} -C "$PRJ_ROOT" \
-                rev-parse --absolute-git-dir \
-                2>/dev/null
-            )"; then
-              mkdir -p "$gitDir/hooks"
-              ln -sf "${mkScript stage}" "$gitDir/hooks/${stage}"
-            fi
-          '';
-
-          mkScript =
-            stage:
-            writeScript "prek-${stage}" ''
-              #!${runtimeShell}
-              if [ "''${PREK:-}" = "0" ] || [ "''${LEFTHOOK:-}" = "0" ]; then
-                exit 0
-              fi
-
-              gitDir="$(
+            mkInstall = stage: ''
+              if gitDir="$(
                 ${getExe git} -C "$PRJ_ROOT" \
                   rev-parse --absolute-git-dir \
-                  2>/dev/null || true
-              )"
-
-              if [ -n "$gitDir" ]; then
-                if [ -e "$gitDir/MERGE_HEAD" ] \
-                  || [ -d "$gitDir/rebase-apply" ] \
-                  || [ -d "$gitDir/rebase-merge" ]; then
-                  exit 0
-                fi
-
-                ref="$(
-                  ${getExe git} -C "$PRJ_ROOT" \
-                    symbolic-ref --quiet --short HEAD \
-                    2>/dev/null || true
-                )"
-
-                if [ "$ref" = "update_flake_lock_action" ]; then
-                  exit 0
-                fi
+                  2>/dev/null
+              )"; then
+                mkdir -p "$gitDir/hooks"
+                ln -sf "${mkScript stage}" "$gitDir/hooks/${stage}"
               fi
-
-              exec ${getExe prek} -C "$PRJ_ROOT" run --stage "${stage}" "$@"
             '';
-        in
-        concatStringsSep "\n" (
-          map mkInstall data.default_install_hook_types
-        );
 
-      packages = with pkgs; [
-        git
-        prek
-      ];
+            mkScript =
+              stage:
+              writeScript "prek-${stage}" ''
+                #!${runtimeShell}
+                set -eu
+                if [ "''${PREK:-}" = "0" ] || [ "''${LEFTHOOK:-}" = "0" ]; then
+                  exit 0
+                fi
 
-      path = "prek.toml";
-    };
+                workTree="$(${getExe git} rev-parse --show-toplevel)"
+                gitDir="$(${getExe git} rev-parse --absolute-git-dir)"
+
+                if [ -n "$gitDir" ]; then
+                  if [ -e "$gitDir/MERGE_HEAD" ] \
+                    || [ -d "$gitDir/rebase-apply" ] \
+                    || [ -d "$gitDir/rebase-merge" ]; then
+                    exit 0
+                  fi
+
+                  ref="$(
+                    ${getExe git} -C "$workTree" \
+                      symbolic-ref --quiet --short HEAD \
+                      2>/dev/null || true
+                  )"
+
+                  if [ "$ref" = "update_flake_lock_action" ]; then
+                    exit 0
+                  fi
+                fi
+
+                exec ${getExe prek} -C "$workTree" run \
+                  --config "${generator data}" --stage "${stage}" "$@"
+              '';
+          in
+          concatStringsSep "\n" (
+            map mkInstall data.default_install_hook_types
+          );
+
+        packages = [
+          pkgs.git
+          pkgs.prek
+        ];
+
+        path = "prek.toml";
+      };
 
     treefmt = rec {
       data = {

@@ -216,6 +216,12 @@ or t for the default fallback.  RULES is a list of (REGEXP
 (defvar-local jieba-rs--segment-cache-context nil
   "Buffer, configuration and dictionary state of cached results.")
 
+(defvar-local jieba-rs--segment-cache-limit 128
+  "Number of cached results to retain for the visible working set.")
+
+(defvar-local jieba-rs--segment-cache-clock 0
+  "Sequence number of the last segmentation cache access.")
+
 (defvar-local jieba-rs--boundaries-enabled nil
   "Whether boundary display is enabled in this buffer.")
 
@@ -340,6 +346,20 @@ In text terminals this falls back to the echo area."
         (goto-char (point-min))))
     (display-buffer buf)))
 
+(defun jieba-rs--trim-segment-cache ()
+  "Discard least recently used results exceeding the cache limit."
+  (when jieba-rs--segment-cache
+    (let ((excess (- (hash-table-count jieba-rs--segment-cache)
+                     jieba-rs--segment-cache-limit)))
+      (when (> excess 0)
+        (let (entries)
+          (maphash (lambda (key line)
+                     (push (cons key (aref line 3)) entries))
+                   jieba-rs--segment-cache)
+          (setq entries (sort entries (lambda (a b) (< (cdr a) (cdr b)))))
+          (dotimes (_ excess)
+            (remhash (car (pop entries)) jieba-rs--segment-cache)))))))
+
 (defun jieba-rs--line-tokens (position &optional tagged normalized)
   "Return cached line bounds and tokens around POSITION.
 TAGGED requests POS categories; NORMALIZED applies overlay rules.
@@ -350,33 +370,37 @@ Each token is a vector of start, end, word and optional category."
                        (jieba-rs-module-dictionary-version))))
     (unless (equal context jieba-rs--segment-cache-context)
       (setq jieba-rs--segment-cache-context (copy-tree context)
+            jieba-rs--segment-cache-clock 0
             jieba-rs--segment-cache (make-hash-table :test #'equal))))
   (save-excursion
     (goto-char position)
     (let* ((beg (line-beginning-position))
            (end (min (point-max) (1+ (line-end-position))))
-           (key (list beg end tagged normalized)))
-      (or (gethash key jieba-rs--segment-cache)
-          (let* ((text (if normalized (jieba-rs--normalize-text beg end)
-                         (buffer-substring-no-properties beg end)))
-                 (items (if tagged
-                            (jieba-rs-module-segment-tag text jieba-rs-hmm)
-                          (jieba-rs-module-segment text jieba-rs-hmm)))
-                 (tokens (make-vector (length items) nil))
-                 (pos beg))
-            (dotimes (i (length items))
-              (let* ((item (aref items i))
-                     (word (if tagged (plist-get item :word) item))
-                     (next (+ pos (length word))))
-                (aset tokens i
-                      (vector pos next word
-                              (when tagged (plist-get item :category))))
-                (setq pos next)))
-            ;; Bound retained data when navigating many different lines.
-            (when (>= (hash-table-count jieba-rs--segment-cache) 128)
-              (clrhash jieba-rs--segment-cache))
-            (puthash key (vector beg end tokens)
-                     jieba-rs--segment-cache))))))
+           (key (list beg end tagged normalized))
+           (cached (gethash key jieba-rs--segment-cache))
+           (line
+            (or cached
+                (let* ((text (if normalized (jieba-rs--normalize-text beg end)
+                               (buffer-substring-no-properties beg end)))
+                       (items (if tagged
+                                  (jieba-rs-module-segment-tag text jieba-rs-hmm)
+                                (jieba-rs-module-segment text jieba-rs-hmm)))
+                       (tokens (make-vector (length items) nil))
+                       (pos beg))
+                  (dotimes (i (length items))
+                    (let* ((item (aref items i))
+                           (word (if tagged (plist-get item :word) item))
+                           (next (+ pos (length word))))
+                      (aset tokens i
+                            (vector pos next word
+                                    (when tagged (plist-get item :category))))
+                      (setq pos next)))
+                  (vector beg end tokens 0)))))
+      (aset line 3 (cl-incf jieba-rs--segment-cache-clock))
+      (unless cached
+        (puthash key line jieba-rs--segment-cache)
+        (jieba-rs--trim-segment-cache))
+      line)))
 
 (defun jieba-rs--visible-range ()
   "Return the visible range, or the accessible range if undisplayed."
@@ -396,6 +420,8 @@ Each token is a vector of start, end, word and optional category."
                         (goto-char (point-max))
                         (skip-chars-backward " \t\n\r\f　")
                         (point))))
+    ;; Retain raw motion, normalized boundaries and tags for each line.
+    (setq jieba-rs--segment-cache-limit (max 128 (* 3 (count-lines beg end))))
     (save-excursion
       (goto-char beg)
       (while (< (point) end)
@@ -409,7 +435,8 @@ Each token is a vector of start, end, word and optional category."
                    while (if tagged (<= pos limit) (< pos limit))
                    unless (string-blank-p (aref token 2))
                    do (funcall function token))
-          (goto-char (aref line 1)))))))
+          (goto-char (aref line 1)))))
+    (jieba-rs--trim-segment-cache)))
 
 (defun jieba-rs--token-index (tokens position backward)
   "Find the token in TOKENS reachable from POSITION moving BACKWARD."
@@ -472,7 +499,9 @@ Each token is a vector of start, end, word and optional category."
   (jieba-rs--clear-boundaries)
   (jieba-rs--clear-tags)
   (setq jieba-rs--segment-cache nil
-        jieba-rs--segment-cache-context nil))
+        jieba-rs--segment-cache-context nil
+        jieba-rs--segment-cache-limit 128
+        jieba-rs--segment-cache-clock 0))
 
 (defun jieba-rs--window-buffer-change (window)
   "Refresh enabled displays when WINDOW starts showing this buffer."

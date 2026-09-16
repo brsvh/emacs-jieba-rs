@@ -857,5 +857,33 @@
                                (when tagged '(25018)))))
         (should (< checks 12))))))
 
+(ert-deftest jieba-rs-tests-cache-retains-visible-working-set ()
+  "Keep both displays cached beyond the original fixed entry limit."
+  (dolist (lines '(65 129))
+    (with-temp-buffer
+      (insert (apply #'concat (make-list lines "测试\n")))
+      (dolist (tagged '(nil t))
+        (jieba-rs--map-visible-tokens #'ignore tagged))
+      (cl-letf (((symbol-function 'jieba-rs-module-segment)
+                 (lambda (&rest _) (ert-fail "Boundary cache miss")))
+                ((symbol-function 'jieba-rs-module-segment-tag)
+                 (lambda (&rest _) (ert-fail "Tag cache miss"))))
+        (dolist (tagged '(nil t))
+          (jieba-rs--map-visible-tokens #'ignore tagged)))
+      (cl-letf (((symbol-function 'jieba-rs--visible-range)
+                 (lambda () '(1 . 4))))
+        (jieba-rs--map-visible-tokens #'ignore))
+      (should (<= (hash-table-count jieba-rs--segment-cache) 128)))))
+
+(ert-deftest jieba-rs-tests-cache-evicts-least-recently-used ()
+  "Retain a frequently visited line while bounding offscreen results."
+  (with-temp-buffer
+    (insert (apply #'concat (make-list 200 "测试\n")))
+    (let ((recent (jieba-rs--line-tokens 1)))
+      (dotimes (index 199)
+        (jieba-rs--line-tokens (+ 4 (* 3 index)))
+        (should (eq recent (jieba-rs--line-tokens 1))))
+      (should (= (hash-table-count jieba-rs--segment-cache) 128)))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

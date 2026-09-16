@@ -835,5 +835,27 @@
     (jieba-rs-backward-sentence)
     (should (= (point) (point-min)))))
 
+(ert-deftest jieba-rs-tests-refresh-skips-offscreen-tokens ()
+  "Inspect only visible tokens when refreshing a cached long line."
+  (with-temp-buffer
+    (insert (apply #'concat (make-list 10000 "我们中国 ")))
+    (dolist (tagged '(nil t))
+      (jieba-rs--line-tokens 1 tagged t)
+      (let ((blank-p (symbol-function 'string-blank-p))
+            (checks 0)
+            positions)
+        (cl-letf (((symbol-function 'jieba-rs--visible-range)
+                   (lambda () '(25003 . 25018)))
+                  ((symbol-function 'string-blank-p)
+                   (lambda (text)
+                     (setq checks (1+ checks))
+                     (funcall blank-p text))))
+          (jieba-rs--map-visible-tokens
+           (lambda (token) (push (aref token 1) positions)) tagged))
+        (should (equal (nreverse positions)
+                       (append '(25003 25005 25008 25010 25013 25015)
+                               (when tagged '(25018)))))
+        (should (< checks 12))))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

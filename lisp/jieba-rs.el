@@ -400,14 +400,14 @@ Each token is a vector of start, end, word and optional category."
       (goto-char beg)
       (while (< (point) end)
         (let* ((line (jieba-rs--line-tokens (point) tagged t))
-               (tokens (aref line 2)))
-          (cl-loop for token across tokens
+               (tokens (aref line 2))
+               (limit (min end content-end)))
+          (cl-loop for index from (jieba-rs--token-index tokens (1- beg) nil)
+                   below (length tokens)
+                   for token = (aref tokens index)
                    for pos = (aref token 1)
-                   when (and (not (string-blank-p (aref token 2)))
-                             (>= pos beg)
-                             (if tagged
-                                 (and (<= pos end) (<= pos content-end))
-                               (and (< pos end) (< pos content-end))))
+                   while (if tagged (<= pos limit) (< pos limit))
+                   unless (string-blank-p (aref token 2))
                    do (funcall function token))
           (goto-char (aref line 1)))))))
 

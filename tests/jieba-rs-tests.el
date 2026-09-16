@@ -808,5 +808,32 @@
       (jieba-rs-mode -1)
       (should-not (memq #'jieba-rs--clear-display change-major-mode-hook)))))
 
+(ert-deftest jieba-rs-tests-backward-sentence-leading-whitespace ()
+  "Reach the accessible beginning instead of advancing through whitespace."
+  (dolist (text '("   " "   你好。" "\t　你好。"))
+    (with-temp-buffer
+      (insert text)
+      (goto-char (point-min))
+      (skip-chars-forward " \t　")
+      (let ((first-word (point)))
+        (dotimes (offset first-word)
+          (dolist (command '(jieba-rs-backward-sentence
+                             jieba-rs-forward-sentence))
+            (goto-char (1+ offset))
+            (funcall command (if (eq command 'jieba-rs-forward-sentence)
+                                 -1 1))
+            (should (= (point) (point-min))))))))
+  (with-temp-buffer
+    (insert "前缀\n   你好。")
+    (narrow-to-region 4 (point-max))
+    (goto-char 5)
+    (jieba-rs-backward-sentence 2)
+    (should (= (point) (point-min)))
+    (goto-char (point-max))
+    (jieba-rs-backward-sentence)
+    (should (looking-at-p "你好"))
+    (jieba-rs-backward-sentence)
+    (should (= (point) (point-min)))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

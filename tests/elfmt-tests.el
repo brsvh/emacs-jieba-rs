@@ -40,5 +40,30 @@
       (elfmt--normalize-indentation)
       (should (equal (buffer-string) (nth 2 case))))))
 
+(ert-deftest elfmt-tests-save-preserves-string-whitespace ()
+  "Honor EditorConfig trimming without changing saved Lisp values."
+  (let* ((directory (make-temp-file "elfmt-save-" t))
+         (file (expand-file-name "literal.el" directory))
+         (source (concat "(list\n\t\"first  \n\tsecond\t \nlast\")  \n"
+                         ";; Comment   \n")))
+    (unwind-protect
+        (dolist (trim '("true" "false"))
+          (with-temp-file (expand-file-name ".editorconfig" directory)
+            (insert "root=true\n[*.el]\nindent_style=space\n"
+                    "trim_trailing_whitespace=" trim "\n"))
+          (with-temp-file file (insert source))
+          (elfmt--run (list file))
+          (let ((formatted (with-temp-buffer
+                             (insert-file-contents file)
+                             (buffer-string))))
+            (should (equal (read source) (read formatted)))
+            (should (eq (not (null (string-match-p "Comment +\n" formatted)))
+                        (equal trim "false")))
+            (elfmt--run (list file))
+            (with-temp-buffer
+              (insert-file-contents file)
+              (should (equal formatted (buffer-string))))))
+      (delete-directory directory t))))
+
 (provide 'elfmt-tests)
 ;;; elfmt-tests.el ends here

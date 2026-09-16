@@ -214,6 +214,16 @@
           (elfmt--normalize-indentation))
       (elfmt--restore-indent-specs saved-properties))))
 
+(defun elfmt--trim-trailing-whitespace ()
+  "Remove line-end spaces and tabs outside string literals."
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward "[ \t]+$" nil t)
+      (let ((start (match-beginning 0))
+            (end (match-end 0)))
+        (unless (nth 3 (save-excursion (syntax-ppss start)))
+          (delete-region start end))))))
+
 (defun elfmt--format-file (file)
   "Format the Emacs Lisp FILE in place."
   (let ((buffer nil)
@@ -229,7 +239,14 @@
                 (elfmt--check-mode file-name)
                 (elfmt--apply-editorconfig)
                 (elfmt--indent-buffer)
-                (save-buffer)))
+                (when (equal (gethash 'trim_trailing_whitespace
+                                      editorconfig-properties-hash)
+                             "true")
+                  (elfmt--trim-trailing-whitespace))
+                ;; EditorConfig may have installed a buffer-local hook
+                ;; that would also trim whitespace inside strings.
+                (let ((before-save-hook nil))
+                  (save-buffer))))
           (when (buffer-live-p buffer)
             (kill-buffer buffer)))
       (elfmt-error (signal (car err) (cdr err)))
@@ -241,7 +258,6 @@
   "Format FILES in a process-local, noninteractive environment."
   (let ((auto-save-default nil)
         (backup-inhibited t)
-        (before-save-hook nil)
         (create-lockfiles nil)
         (enable-local-eval nil)
         (enable-local-variables :safe)

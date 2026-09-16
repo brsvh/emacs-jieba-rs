@@ -722,5 +722,37 @@
           (should (= (point) (point-max))))
       (delete-file file))))
 
+(ert-deftest jieba-rs-tests-reject-invalid-string-bytes ()
+  "Reject invalid UTF-8 at every native string boundary without panicking."
+  (let ((invalid (unibyte-string #xff))
+        (version (jieba-rs-module-dictionary-version)))
+    (dolist (call `((jieba-rs-module-segment ,invalid nil)
+                    (jieba-rs-module-segment-all ,invalid)
+                    (jieba-rs-module-segment-search ,invalid nil)
+                    (jieba-rs-module-segment-tag ,invalid nil)
+                    (jieba-rs-module-load-user-dict ,invalid)
+                    (jieba-rs-module-add-word ,invalid 100 nil)
+                    (jieba-rs-module-add-word "测试" 100 ,invalid)
+                    (jieba-rs-module-extract-keywords ,invalid 5 "tfidf")
+                    (jieba-rs-module-extract-keywords "测试" 5 ,invalid)))
+      (should-error (apply (car call) (cdr call))
+                    :type 'wrong-type-argument))
+    (should (= version (jieba-rs-module-dictionary-version)))
+    (should (equal (jieba-rs-module-segment "中国" nil) ["中国"]))))
+
+(ert-deftest jieba-rs-tests-preserve-string-contents ()
+  "Keep Unicode and NUL characters intact during native conversion."
+  (dolist (text '("" "ASCII" "中国😀" "\0" "中国\0\0" "中国\0北京"))
+    (should (equal (mapconcat #'identity
+                              (jieba-rs-module-segment text nil) "")
+                   text))
+    (let ((tags (jieba-rs-module-segment-tag text nil)))
+      (should (equal (mapconcat (lambda (tag) (plist-get tag :word))
+                                tags "")
+                     text))
+      (when (> (length tags) 0)
+        (should (= (plist-get (aref tags (1- (length tags))) :end)
+                   (length text)))))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

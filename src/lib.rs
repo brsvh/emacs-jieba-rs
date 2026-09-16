@@ -17,10 +17,32 @@
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
-use emacs::{Env, IntoLisp, Result, Value, Vector, defun};
+use emacs::{Env, FromLisp, IntoLisp, Result, Value, Vector, defun};
 use jieba_rs::{Jieba, KeywordExtract, TextRank, TfIdf};
 
 emacs::plugin_is_GPL_compatible!();
+
+/// A checked Lisp string that preserves embedded and trailing NULs.
+struct LispString(String);
+
+impl FromLisp<'_> for LispString {
+    fn from_lisp(value: Value<'_>) -> Result<Self> {
+        let env = value.env;
+        let size: usize =
+            env.call("string-bytes", (value,))?.into_rust()?;
+        // Emacs byte counts fit in isize, leaving room for a terminator.
+        let mut bytes = vec![0; size + 1];
+        let len = value.copy_string_contents(&mut bytes)?.len();
+        bytes.truncate(len);
+        match String::from_utf8(bytes) {
+            Ok(text) => Ok(Self(text)),
+            Err(_) => env.signal(
+                "wrong-type-argument",
+                (env.intern("unicode-string-p")?, value),
+            ),
+        }
+    }
+}
 
 #[derive(Default)]
 struct Dictionary {
@@ -48,9 +70,10 @@ static TEXT_RANK: LazyLock<TextRank> =
 #[defun]
 fn segment<'a>(
     env: &'a Env,
-    text: String,
+    text: LispString,
     hmm: Value<'a>,
 ) -> Result<Vector<'a>> {
+    let text = text.0;
     let words =
         JIEBA.lock().unwrap().jieba.cut(&text, hmm.is_not_nil());
     let len = words.len();
@@ -68,7 +91,8 @@ fn segment<'a>(
 ///
 /// Return a vector of word strings.
 #[defun]
-fn segment_all(env: &Env, text: String) -> Result<Vector<'_>> {
+fn segment_all(env: &Env, text: LispString) -> Result<Vector<'_>> {
+    let text = text.0;
     let words = JIEBA.lock().unwrap().jieba.cut_all(&text);
     let len = words.len();
     let vec = env.make_vector(len, ())?;
@@ -90,9 +114,10 @@ fn segment_all(env: &Env, text: String) -> Result<Vector<'_>> {
 #[defun]
 fn segment_search<'a>(
     env: &'a Env,
-    text: String,
+    text: LispString,
     hmm: Value<'a>,
 ) -> Result<Vector<'a>> {
+    let text = text.0;
     let words = JIEBA
         .lock()
         .unwrap()
@@ -115,9 +140,10 @@ fn segment_search<'a>(
 #[defun]
 fn segment_tag<'a>(
     env: &'a Env,
-    text: String,
+    text: LispString,
     hmm: Value<'a>,
 ) -> Result<Vector<'a>> {
+    let text = text.0;
     let dictionary = JIEBA.lock().unwrap();
     let jieba = &dictionary.jieba;
     let tags = jieba.tag(&text, hmm.is_not_nil());
@@ -146,7 +172,8 @@ fn segment_tag<'a>(
 
 /// Load a user dictionary from PATH.
 #[defun]
-fn load_user_dict(env: &Env, path: String) -> Result<()> {
+fn load_user_dict(env: &Env, path: LispString) -> Result<()> {
+    let path = path.0;
     let contents = match std::fs::read_to_string(&path) {
         Ok(f) => f,
         Err(e) => {
@@ -180,17 +207,18 @@ fn load_user_dict(env: &Env, path: String) -> Result<()> {
 #[defun]
 fn add_word(
     _env: &Env,
-    word: String,
+    word: LispString,
     freq: Value,
     tag: Value,
 ) -> Result<usize> {
+    let word = word.0;
     let freq_opt: Option<usize> = if freq.is_not_nil() {
         Some(freq.into_rust()?)
     } else {
         None
     };
     let tag_opt: Option<String> = if tag.is_not_nil() {
-        Some(tag.into_rust()?)
+        Some(tag.into_rust::<LispString>()?.0)
     } else {
         None
     };
@@ -219,10 +247,11 @@ fn dictionary_version() -> Result<u64> {
 #[defun]
 fn extract_keywords<'a>(
     env: &'a Env,
-    text: String,
+    text: LispString,
     top_k: Value<'a>,
     method: Value<'a>,
 ) -> Result<Vector<'a>> {
+    let text = text.0;
     let k: usize = if top_k.is_not_nil() {
         top_k.into_rust()?
     } else {
@@ -232,7 +261,7 @@ fn extract_keywords<'a>(
     // upstream result allocation even for an arbitrarily large K.
     let k = k.min(text.chars().count());
     let use_tfidf = method.is_not_nil()
-        && method.into_rust::<String>()? == "tfidf";
+        && method.into_rust::<LispString>()?.0 == "tfidf";
     let dictionary = JIEBA.lock().unwrap();
     let jieba = &dictionary.jieba;
     let keywords = if use_tfidf {

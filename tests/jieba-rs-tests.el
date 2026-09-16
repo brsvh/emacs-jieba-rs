@@ -1146,6 +1146,7 @@
 (ert-deftest jieba-rs-tests-refresh-skips-offscreen-tokens ()
   "Inspect only visible tokens when refreshing a cached long line."
   (with-temp-buffer
+    (setq-local jieba-rs-max-display-line-length nil)
     (insert (apply #'concat (make-list 10000 "我们中国 ")))
     (dolist (tagged '(nil t))
       (jieba-rs--line-tokens 1 tagged t)
@@ -1164,6 +1165,63 @@
                        (append '(25003 25005 25008 25010 25013 25015)
                                (when tagged '(25018)))))
         (should (< checks 12))))))
+
+(ert-deftest jieba-rs-tests-display-skips-long-lines ()
+  "Skip whole long lines before native calls, including after editing."
+  (with-temp-buffer
+    (insert "中国\n" (make-string 20001 ?中) "\n北京")
+    (let ((segment (symbol-function 'jieba-rs-module-segment))
+          (tag (symbol-function 'jieba-rs-module-segment-tag))
+          (calls 0))
+      (cl-letf (((symbol-function 'jieba-rs-module-segment)
+                 (lambda (text hmm)
+                   (should (<= (length text) 3))
+                   (cl-incf calls)
+                   (funcall segment text hmm)))
+                ((symbol-function 'jieba-rs-module-segment-tag)
+                 (lambda (text hmm)
+                   (should (<= (length text) 3))
+                   (cl-incf calls)
+                   (funcall tag text hmm))))
+        (dotimes (_ 3)
+          (goto-char 10000)
+          (insert "甲")
+          (dolist (tagged '(nil t))
+            (let (words)
+              (jieba-rs--map-visible-tokens
+               (lambda (token) (push (aref token 2) words)) tagged)
+              (should (equal (nreverse words)
+                             (if tagged '("中国" "北京") '("中国")))))))
+        (should (= calls 12))
+        (cl-letf (((symbol-function 'jieba-rs--visible-range)
+                   (lambda () '(10000 . 10020))))
+          (dolist (tagged '(nil t))
+            (jieba-rs--map-visible-tokens
+             (lambda (_) (ert-fail "Long line was rendered")) tagged)))
+        (should (= calls 12))))))
+
+(ert-deftest jieba-rs-tests-display-line-limit-options ()
+  "Honor exact line limits, unlimited display, narrowing and word motion."
+  (dolist (case '((10 10 1) (10 11 0) (nil 11 1)))
+    (with-temp-buffer
+      (insert (make-string (nth 1 case) ?a) "\n")
+      (let ((jieba-rs-max-display-line-length (car case))
+            (tokens 0))
+        (jieba-rs--map-visible-tokens (lambda (_) (cl-incf tokens)) t)
+        (should (= tokens (nth 2 case))))))
+  (with-temp-buffer
+    (insert "中国北京")
+    (let ((jieba-rs-max-display-line-length 2)
+          (jieba-rs-hmm nil)
+          words)
+      (narrow-to-region 1 3)
+      (jieba-rs--map-visible-tokens
+       (lambda (token) (push (aref token 2) words)) t)
+      (should (equal words '("中国")))
+      (widen)
+      (goto-char 1)
+      (jieba-rs-forward-word 2)
+      (should (= (point) (point-max))))))
 
 (ert-deftest jieba-rs-tests-cache-retains-visible-working-set ()
   "Keep both displays cached beyond the original fixed entry limit."

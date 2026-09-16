@@ -189,6 +189,16 @@ or t for the default fallback.  RULES is a list of (REGEXP
   :type 'string
   :group 'jieba-rs)
 
+(defcustom jieba-rs-max-display-line-length 10000
+  "Maximum characters per line to segment for boundary and POS displays.
+Longer lines are skipped to keep idle refreshes responsive after editing.
+The count excludes the terminating newline and respects narrowing.
+Set to nil to display lines of any length, which may delay Emacs.
+Word motion and explicit segmentation commands always use the full text."
+  :type '(choice (const :tag "Unlimited" nil)
+                 (natnum :tag "Maximum characters"))
+  :group 'jieba-rs)
+
 (defface jieba-rs-boundary-face
   '((t :inherit shadow))
   "Face for word boundary separators."
@@ -473,17 +483,21 @@ Each token is a vector of start, end, word and optional category."
         (save-excursion
           (goto-char beg)
           (while (< (point) end)
-            (let* ((line (jieba-rs--line-tokens (point) tagged t))
-                   (tokens (aref line 2))
-                   (limit (min end content-end)))
-              (cl-loop for index from (jieba-rs--token-index tokens (1- beg) nil)
-                       below (length tokens)
-                       for token = (aref tokens index)
-                       for pos = (aref token 1)
-                       while (if tagged (<= pos limit) (< pos limit))
-                       unless (string-blank-p (aref token 2))
-                       do (funcall function token))
-              (goto-char (aref line 1)))))))
+            (let ((line-end (line-end-position)))
+              (unless (and jieba-rs-max-display-line-length
+                           (> (- line-end (line-beginning-position))
+                              jieba-rs-max-display-line-length))
+                (let* ((line (jieba-rs--line-tokens (point) tagged t))
+                       (tokens (aref line 2))
+                       (limit (min end content-end)))
+                  (cl-loop for index from (jieba-rs--token-index tokens (1- beg) nil)
+                           below (length tokens)
+                           for token = (aref tokens index)
+                           for pos = (aref token 1)
+                           while (if tagged (<= pos limit) (< pos limit))
+                           unless (string-blank-p (aref token 2))
+                           do (funcall function token))))
+              (goto-char (min (point-max) (1+ line-end))))))))
     (jieba-rs--trim-segment-cache)))
 
 (defun jieba-rs--token-index (tokens position backward)

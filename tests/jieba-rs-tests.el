@@ -591,5 +591,136 @@
     (should (equal result (jieba-rs-module-extract-keywords
                            "关键词缓存测试词" 5 "tfidf")))))
 
+(ert-deftest jieba-rs-tests-word-motion-across-lines ()
+  "Move across blank lines, partial words and narrowed boundaries."
+  (with-temp-buffer
+    (insert "我们\n \n中国\n")
+    (let ((jieba-rs-hmm nil))
+      (goto-char 1)
+      (jieba-rs-forward-word)
+      (should (= (point) 3))
+      (jieba-rs-forward-word)
+      (should (= (point) 8))
+      (jieba-rs-backward-word)
+      (should (= (point) 6))
+      (jieba-rs-backward-word)
+      (should (= (point) 1))
+      (jieba-rs-forward-word 10)
+      (should (= (point) (point-max)))
+      (jieba-rs-forward-word -10)
+      (should (= (point) (point-min)))
+      (narrow-to-region 6 8)
+      (goto-char 7)
+      (jieba-rs-forward-word)
+      (should (= (point) 8))
+      (jieba-rs-backward-word)
+      (should (= (point) 6))
+      (jieba-rs-backward-word -1)
+      (should (= (point) 8))
+      (jieba-rs-forward-word 0)
+      (should (= (point) 8)))))
+
+(ert-deftest jieba-rs-tests-word-motion-reuses-line ()
+  "Repeated motion segments a long line only once."
+  (with-temp-buffer
+    (insert (apply #'concat (make-list 1000 "南京市长江大桥 ")))
+    (goto-char (point-min))
+    (let ((original (symbol-function 'jieba-rs-module-segment))
+          (calls 0))
+      (cl-letf (((symbol-function 'jieba-rs-module-segment)
+                 (lambda (text hmm)
+                   (setq calls (1+ calls))
+                   (funcall original text hmm))))
+        (jieba-rs-forward-word 10)
+        (jieba-rs-backward-word 10)
+        (should (= (point) (point-min)))
+        (should (= calls 1))))))
+
+(ert-deftest jieba-rs-tests-refresh-segments-visible-lines ()
+  "Refresh only visible lines and reuse them without editing."
+  (with-temp-buffer
+    (insert (apply #'concat (make-list 10000 "我们中出了一个叛徒。\n")))
+    (let ((segment (symbol-function 'jieba-rs-module-segment))
+          (tag (symbol-function 'jieba-rs-module-segment-tag))
+          (characters 0))
+      (cl-letf (((symbol-function 'jieba-rs--visible-range)
+                 (lambda () (cons 1 45)))
+                ((symbol-function 'jieba-rs-module-segment)
+                 (lambda (text hmm)
+                   (setq characters (+ characters (length text)))
+                   (funcall segment text hmm)))
+                ((symbol-function 'jieba-rs-module-segment-tag)
+                 (lambda (text hmm)
+                   (setq characters (+ characters (length text)))
+                   (funcall tag text hmm))))
+        (unwind-protect
+            (progn
+              (jieba-rs-toggle-boundaries)
+              (jieba-rs-toggle-tags)
+              (should (< characters 150))
+              (let ((initial characters))
+                (jieba-rs--refresh-boundaries)
+                (jieba-rs--refresh-tags)
+                (should (= characters initial))))
+          (jieba-rs--clear-display))))))
+
+(ert-deftest jieba-rs-tests-cache-observes-dictionary-updates ()
+  "Invalidate cached lines after a dictionary update in another buffer."
+  (with-temp-buffer
+    (insert "分词缓存失效测试词")
+    (let ((jieba-rs-hmm nil))
+      (should (> (length (aref (jieba-rs--line-tokens 1) 2)) 1))
+      (with-temp-buffer
+        (jieba-rs-module-add-word "分词缓存失效测试词" 100 "n"))
+      (should (= (length (aref (jieba-rs--line-tokens 1) 2)) 1))
+      (goto-char 1)
+      (jieba-rs-forward-word)
+      (should (= (point) (point-max))))))
+
+(ert-deftest jieba-rs-tests-cache-observes-text-and-rules ()
+  "Invalidate cached results after text, rules or narrowing change."
+  (with-temp-buffer
+    (insert "我们")
+    (should (equal (aref (aref (aref (jieba-rs--line-tokens 1 nil t) 2) 0) 2)
+                   "我们"))
+    (erase-buffer)
+    (insert "中国")
+    (should (equal (aref (aref (aref (jieba-rs--line-tokens 1 nil t) 2) 0) 2)
+                   "中国"))
+    (let ((jieba-rs-normalize-rules '((t ("." . " ")))))
+      (should (string-blank-p
+               (aref (aref (aref (jieba-rs--line-tokens 1 nil t) 2) 0) 2))))
+    (narrow-to-region 2 3)
+    (should (equal (aref (aref (aref (jieba-rs--line-tokens 2) 2) 0) 2)
+                   "国"))))
+
+(ert-deftest jieba-rs-tests-cache-observes-hmm-option ()
+  "Use new word boundaries when HMM is changed."
+  (with-temp-buffer
+    (insert "杭研大厦")
+    (goto-char 1)
+    (let ((jieba-rs-hmm nil))
+      (jieba-rs-forward-word)
+      (should (= (point) 2)))
+    (goto-char 1)
+    (let ((jieba-rs-hmm t))
+      (jieba-rs-forward-word)
+      (should (= (point) 3)))))
+
+(ert-deftest jieba-rs-tests-cache-observes-dictionary-file ()
+  "Use new boundaries after loading a dictionary file."
+  (let ((file (make-temp-file "jieba-cache-dict-")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert "文件缓存更新测试词")
+          (should (> (length (aref (jieba-rs--line-tokens 1) 2)) 1))
+          (with-temp-file file
+            (insert "文件缓存更新测试词 100 n\n"))
+          (jieba-rs-module-load-user-dict file)
+          (goto-char 1)
+          (jieba-rs-forward-word)
+          (should (= (point) (point-max))))
+      (delete-file file))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

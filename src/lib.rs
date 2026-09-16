@@ -27,6 +27,7 @@ struct Dictionary {
     jieba: Jieba,
     // Upstream updates frequencies, but retains tags for existing words.
     tags: HashMap<String, String>,
+    version: u64,
 }
 
 static JIEBA: LazyLock<Mutex<Dictionary>> =
@@ -153,6 +154,7 @@ fn load_user_dict(env: &Env, path: String) -> Result<()> {
         }
     };
     let mut dictionary = JIEBA.lock().unwrap();
+    dictionary.version = dictionary.version.wrapping_add(1);
     match dictionary.jieba.load_dict(&mut contents.as_bytes()) {
         Ok(()) => {
             for line in contents.lines() {
@@ -193,6 +195,7 @@ fn add_word(
         None
     };
     let mut dictionary = JIEBA.lock().unwrap();
+    dictionary.version = dictionary.version.wrapping_add(1);
     let freq = dictionary.jieba.add_word(
         &word,
         freq_opt,
@@ -202,6 +205,12 @@ fn add_word(
         dictionary.tags.insert(word, tag);
     }
     Ok(freq)
+}
+
+/// Return the dictionary version for invalidating segmentation caches.
+#[defun]
+fn dictionary_version() -> Result<u64> {
+    Ok(JIEBA.lock().unwrap().version)
 }
 
 /// Extract top-K keywords from TEXT using TF-IDF or TextRank.

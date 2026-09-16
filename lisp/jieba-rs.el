@@ -121,6 +121,9 @@
 (declare-function jieba-rs-module-extract-keywords
                   "ext:jieba-rs-module" (text top_k method))
 
+(declare-function jieba-rs-module-dictionary-version
+                  "ext:jieba-rs-module" ())
+
 (defgroup jieba-rs nil
   "Jieba Chinese word segmentation."
   :prefix "jieba-rs-"
@@ -207,6 +210,12 @@ or t for the default fallback.  RULES is a list of (REGEXP
     ("i" . "noun") ("l" . "noun") ("j" . "noun"))
   "Alist mapping ICTCLAS POS codes to Universal Dependencies tags.")
 
+(defvar-local jieba-rs--segment-cache nil
+  "Cached line bounds and segmentation results.")
+
+(defvar-local jieba-rs--segment-cache-context nil
+  "Buffer, configuration and dictionary state of cached results.")
+
 (defvar-local jieba-rs--boundaries-enabled nil
   "Whether boundary display is enabled in this buffer.")
 
@@ -217,13 +226,13 @@ or t for the default fallback.  RULES is a list of (REGEXP
   "List of word boundary overlays in the current buffer.")
 
 (defvar-local jieba-rs--boundaries-timer nil
-  "Idle timer or `post-command-hook' for boundary refresh.")
+  "Pending idle timer for boundary refresh.")
 
 (defvar-local jieba-rs-tag-overlays nil
   "List of POS tag overlays in the current buffer.")
 
 (defvar-local jieba-rs--tags-timer nil
-  "Idle timer or `post-command-hook' for tag refresh.")
+  "Pending idle timer for tag refresh.")
 
 (defun jieba-rs--load-module ()
   "Load the native module if not already loaded."
@@ -331,6 +340,110 @@ In text terminals this falls back to the echo area."
         (goto-char (point-min))))
     (display-buffer buf)))
 
+(defun jieba-rs--line-tokens (position &optional tagged normalized)
+  "Return cached line bounds and tokens around POSITION.
+TAGGED requests POS categories; NORMALIZED applies overlay rules.
+Each token is a vector of start, end, word and optional category."
+  (let ((context (list (buffer-chars-modified-tick)
+                       (point-min) (point-max) jieba-rs-hmm major-mode
+                       jieba-rs-normalize-rules
+                       (jieba-rs-module-dictionary-version))))
+    (unless (equal context jieba-rs--segment-cache-context)
+      (setq jieba-rs--segment-cache-context (copy-tree context)
+            jieba-rs--segment-cache (make-hash-table :test #'equal))))
+  (save-excursion
+    (goto-char position)
+    (let* ((beg (line-beginning-position))
+           (end (min (point-max) (1+ (line-end-position))))
+           (key (list beg end tagged normalized)))
+      (or (gethash key jieba-rs--segment-cache)
+          (let* ((text (if normalized (jieba-rs--normalize-text beg end)
+                         (buffer-substring-no-properties beg end)))
+                 (items (if tagged
+                            (jieba-rs-module-segment-tag text jieba-rs-hmm)
+                          (jieba-rs-module-segment text jieba-rs-hmm)))
+                 (tokens (make-vector (length items) nil))
+                 (pos beg))
+            (dotimes (i (length items))
+              (let* ((item (aref items i))
+                     (word (if tagged (plist-get item :word) item))
+                     (next (+ pos (length word))))
+                (aset tokens i
+                      (vector pos next word
+                              (when tagged (plist-get item :category))))
+                (setq pos next)))
+            ;; Bound retained data when navigating many different lines.
+            (when (>= (hash-table-count jieba-rs--segment-cache) 128)
+              (clrhash jieba-rs--segment-cache))
+            (puthash key (vector beg end tokens)
+                     jieba-rs--segment-cache))))))
+
+(defun jieba-rs--visible-range ()
+  "Return the visible range, or the accessible range if undisplayed."
+  (let* ((window (get-buffer-window nil t))
+         (beg (if window (window-start window) (point-min)))
+         (end (if window (window-end window t) (point-max))))
+    (if (and end (> end beg))
+        (cons (max beg (point-min)) (min end (point-max)))
+      (cons (point-min) (point-max)))))
+
+(defun jieba-rs--map-visible-tokens (function &optional tagged)
+  "Call FUNCTION for visible normalized tokens, optionally TAGGED."
+  (let* ((range (jieba-rs--visible-range))
+         (beg (car range))
+         (end (cdr range))
+         (content-end (save-excursion
+                        (goto-char (point-max))
+                        (skip-chars-backward " \t\n\r\f　")
+                        (point))))
+    (save-excursion
+      (goto-char beg)
+      (while (< (point) end)
+        (let* ((line (jieba-rs--line-tokens (point) tagged t))
+               (tokens (aref line 2)))
+          (cl-loop for token across tokens
+                   for pos = (aref token 1)
+                   when (and (not (string-blank-p (aref token 2)))
+                             (>= pos beg)
+                             (if tagged
+                                 (and (<= pos end) (<= pos content-end))
+                               (and (< pos end) (< pos content-end))))
+                   do (funcall function token))
+          (goto-char (aref line 1)))))))
+
+(defun jieba-rs--token-index (tokens position backward)
+  "Find the token in TOKENS reachable from POSITION moving BACKWARD."
+  (let ((low 0)
+        (high (length tokens)))
+    (while (< low high)
+      (let* ((mid (/ (+ low high) 2))
+             (token (aref tokens mid)))
+        (if (if backward (< (aref token 0) position)
+              (<= (aref token 1) position))
+            (setq low (1+ mid))
+          (setq high mid))))
+    (if backward (1- low) low)))
+
+(defun jieba-rs--move-word (count)
+  "Move COUNT words using cached boundaries of complete lines."
+  (let ((backward (< count 0))
+        (remaining (abs count)))
+    (while (and (> remaining 0)
+                (if backward (> (point) (point-min))
+                  (< (point) (point-max))))
+      (let* ((position (if (and backward (bolp)) (1- (point)) (point)))
+             (line (jieba-rs--line-tokens position))
+             (tokens (aref line 2))
+             (index (jieba-rs--token-index tokens (point) backward)))
+        (while (and (> remaining 0) (>= index 0) (< index (length tokens)))
+          (let ((token (aref tokens index)))
+            (unless (string-blank-p (aref token 2))
+              (goto-char (aref token (if backward 0 1)))
+              (setq remaining (1- remaining))))
+          (setq index (+ index (if backward -1 1))))
+        (when (> remaining 0)
+          (goto-char (aref line (if backward 0 1))))))))
+
 (defun jieba-rs--update-display-hooks ()
   "Keep refresh and cleanup hooks consistent with display state."
   (dolist (entry
@@ -356,7 +469,9 @@ In text terminals this falls back to the echo area."
 (defun jieba-rs--clear-display ()
   "Disable both displays and cancel their pending refreshes."
   (jieba-rs--clear-boundaries)
-  (jieba-rs--clear-tags))
+  (jieba-rs--clear-tags)
+  (setq jieba-rs--segment-cache nil
+        jieba-rs--segment-cache-context nil))
 
 (defun jieba-rs--window-buffer-change (window)
   "Refresh enabled displays when WINDOW starts showing this buffer."
@@ -431,33 +546,15 @@ In text terminals this falls back to the echo area."
 (defun jieba-rs--show-boundaries ()
   "Show word boundaries in the current buffer."
   (setq jieba-rs--boundaries-enabled t)
-  (let* ((beg (point-min))
-         (end (save-excursion
-                (goto-char (point-max))
-                (skip-chars-backward " \t\n\r\f　")
-                (point)))
-         (win-start (window-start))
-         (win-end (window-end))
-         (text (jieba-rs--normalize-text beg end))
-         (pos beg))
-    (unless (and win-end (> win-end win-start))
-      (setq win-start beg
-            win-end end))
-    (dolist (word (append (jieba-rs-module-segment
-                           text jieba-rs-hmm)
-                          nil))
-      (setq pos (+ pos (length word)))
-      (when (and (not (string-blank-p word))
-                 (< pos end)
-                 (>= pos win-start)
-                 (< pos win-end))
-        (let ((ov (make-overlay pos pos)))
-          (overlay-put ov 'priority 0)
-          (overlay-put ov 'after-string
-                       (propertize jieba-rs-boundary-separator
-                                   'face
-                                   'jieba-rs-boundary-face))
-          (push ov jieba-rs-boundaries-overlays)))))
+  (jieba-rs--map-visible-tokens
+   (lambda (token)
+     (let* ((pos (aref token 1))
+            (ov (make-overlay pos pos)))
+       (overlay-put ov 'priority 0)
+       (overlay-put ov 'after-string
+                    (propertize jieba-rs-boundary-separator
+                                'face 'jieba-rs-boundary-face))
+       (push ov jieba-rs-boundaries-overlays))))
   (jieba-rs--update-display-hooks))
 
 (defun jieba-rs--clear-tags ()
@@ -494,39 +591,18 @@ In text terminals this falls back to the echo area."
 (defun jieba-rs--show-tags ()
   "Show POS tags in the current buffer."
   (setq jieba-rs--tags-enabled t)
-  (let* ((beg (point-min))
-         (end (save-excursion
-                (goto-char (point-max))
-                (skip-chars-backward " \t\n\r\f　")
-                (point)))
-         (win-start (window-start))
-         (win-end (window-end))
-         (text (jieba-rs--normalize-text beg end))
-         (pos beg))
-    (unless (and win-end (> win-end win-start))
-      (setq win-start beg
-            win-end end))
-    (dolist (tag (append (jieba-rs-module-segment-tag
-                          text jieba-rs-hmm)
-                         nil))
-      (let* ((word (plist-get tag :word))
-             (cat (plist-get tag :category))
-             (end-pos (+ pos (length word)))
-             (ud (or (cdr (assoc cat jieba-rs-tag-names))
-                     cat)))
-        (when (and (not (string-blank-p word))
-                   (<= end-pos end)
-                   (>= end-pos win-start)
-                   (<= end-pos win-end))
-          (let ((ov (make-overlay end-pos end-pos)))
-            (overlay-put ov 'priority 1)
-            (overlay-put ov 'after-string
-                         (propertize ud
-                                     'display '(raise -0.3)
-                                     'face
-                                     'jieba-rs-tag-face))
-            (push ov jieba-rs-tag-overlays)))
-        (setq pos end-pos))))
+  (jieba-rs--map-visible-tokens
+   (lambda (token)
+     (let* ((pos (aref token 1))
+            (cat (aref token 3))
+            (label (or (cdr (assoc cat jieba-rs-tag-names)) cat))
+            (ov (make-overlay pos pos)))
+       (overlay-put ov 'priority 1)
+       (overlay-put ov 'after-string
+                    (propertize label 'display '(raise -0.3)
+                                'face 'jieba-rs-tag-face))
+       (push ov jieba-rs-tag-overlays)))
+   t)
   (jieba-rs--update-display-hooks))
 
 (defun jieba-rs--post-command-scroll-check ()
@@ -588,50 +664,14 @@ If writing the file fails, WORD remains available for this session."
   (interactive "^p")
   (unless (featurep 'jieba-rs-module)
     (user-error "Jieba native module not loaded"))
-  (let ((n (or arg 1)))
-    (if (< n 0)
-        (jieba-rs-backward-word (- n))
-      (dotimes (_i n)
-        (let* ((orig (point))
-               ;; Always use precise mode for contiguous
-               ;; word boundaries.
-               (words (jieba-rs-module-segment
-                       (buffer-substring-no-properties
-                        (point) (point-max))
-                       jieba-rs-hmm))
-               (pos (point)))
-          (catch 'done
-            (dolist (word (append words nil))
-              (setq pos (+ pos (length word)))
-              (unless (string-blank-p word)
-                (goto-char pos)
-                (throw 'done t))))
-          (when (= (point) orig)
-            (goto-char (point-max))))))))
+  (jieba-rs--move-word (or arg 1)))
 
 (defun jieba-rs-backward-word (&optional arg)
   "Move point backward ARG Chinese words."
   (interactive "^p")
   (unless (featurep 'jieba-rs-module)
     (user-error "Jieba native module not loaded"))
-  (let ((n (or arg 1)))
-    (if (< n 0)
-        (jieba-rs-forward-word (- n))
-      (dotimes (_i n)
-        (let ((words (append (jieba-rs-module-segment
-                              (buffer-substring-no-properties
-                               (point-min) (point))
-                              jieba-rs-hmm)
-                             nil))
-              (target (point-min))
-              (pos (point-min)))
-          (dolist (word words)
-            (let ((end (+ pos (length word))))
-              (unless (string-blank-p word)
-                (when (< pos (point))
-                  (setq target pos)))
-              (setq pos end)))
-          (goto-char target))))))
+  (jieba-rs--move-word (- (or arg 1))))
 
 (defun jieba-rs-forward-sentence (&optional arg)
   "Move point forward ARG Chinese sentences.

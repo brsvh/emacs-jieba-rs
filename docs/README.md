@@ -90,6 +90,8 @@ make local
 
 两种显示都使用覆盖层，不改写文本。覆盖层只覆盖当前窗口的可见范围，并随编辑和滚动刷新。
 
+词移动和覆盖层按行分词并复用结果。修改文本、分词配置或共享词典后会重新计算；超长单行的首次处理仍可能耗时。
+
 - `jieba-rs-boundary-separator` 设置词间分隔符，默认为两个空格。
 - `jieba-rs-boundary-face` 设置词边界外观，默认继承 `shadow`。
 - `jieba-rs-tag-face` 设置词性标签外观，默认继承 `font-lock-keyword-face` 并使用斜体。

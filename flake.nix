@@ -207,6 +207,7 @@
             inherit (lib)
               concatMapStringsSep
               foldl'
+              removeSuffix
               versions
               ;
 
@@ -348,16 +349,19 @@
                             "${emacsWithJiebaRs}/bin/emacs" --batch \
                               --init-directory "$initdir" \
                               -L "$workdir/lisp" \
-                              --eval '(progn
-                                (require (quote jieba-rs))
-                                (require (quote jieba-rs-module))
-                                (unless
-                                    (equal
-                                     (jieba-rs-module-segment
-                                      "我们中出了一个叛徒" nil)
-                                     ["我们" "中" "出" "了" "一个" "叛徒"])
-                                  (error
-                                   "Rust module segmentation smoke test failed")))'
+                              -L "$workdir/tools/elfmt" \
+                              --eval '(setq native-comp-jit-compilation nil)' \
+                              ${
+                                concatMapStringsSep " \\\n" (
+                                  source:
+                                  ''-l "$workdir/${removeSuffix ".el" source}.elc"''
+                                ) lispSources
+                              } \
+                              --eval '(unless
+                                (byte-code-function-p
+                                 (symbol-function (quote jieba-rs--content-end)))
+                                (error "Expected ordinary Lisp bytecode"))' \
+                              -f ert-run-tests-batch-and-exit
                           '';
                         };
 

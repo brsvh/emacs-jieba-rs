@@ -457,5 +457,17 @@
     (jieba-rs-backward-sentence)
     (should (= (point) (point-min)))))
 
+(ert-deftest jieba-rs-tests-tags-include-final-word ()
+  "Display the final word tag with or without trailing whitespace."
+  (dolist (text '("中国" "中国\n" "中国  "))
+    (with-temp-buffer
+      (insert text)
+      (unwind-protect
+          (progn
+            (jieba-rs-toggle-tags)
+            (should (= (length jieba-rs-tag-overlays) 1))
+            (should (= (overlay-start (car jieba-rs-tag-overlays)) 3)))
+        (jieba-rs--clear-tags)))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

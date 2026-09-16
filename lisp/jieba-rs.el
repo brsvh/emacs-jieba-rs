@@ -489,9 +489,9 @@ In text terminals this falls back to the echo area."
              (ud (or (cdr (assoc cat jieba-rs-tag-names))
                      cat)))
         (when (and (not (string-blank-p word))
-                   (< end-pos end)
+                   (<= end-pos end)
                    (>= end-pos win-start)
-                   (< end-pos win-end))
+                   (<= end-pos win-end))
           (let ((ov (make-overlay end-pos end-pos)))
             (overlay-put ov 'priority 1)
             (overlay-put ov 'after-string

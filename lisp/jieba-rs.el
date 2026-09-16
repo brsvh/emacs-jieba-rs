@@ -324,6 +324,34 @@ In text terminals this falls back to the echo area."
         (goto-char (point-min))))
     (display-buffer buf)))
 
+(defun jieba-rs--run-refresh (buffer window function timer-variable)
+  "Refresh BUFFER in WINDOW using FUNCTION and clear TIMER-VARIABLE."
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (set timer-variable nil)
+      (let ((target (if (and (window-live-p window)
+                             (eq (window-buffer window) buffer))
+                        window
+                      (get-buffer-window buffer t))))
+        (when target
+          (with-selected-window target
+            (funcall function)))))))
+
+(defun jieba-rs--schedule-refresh (kind &optional window delay)
+  "Schedule a refresh of KIND in WINDOW after idle DELAY seconds."
+  (let* ((boundaries (eq kind 'boundaries))
+         (timer-variable (if boundaries 'jieba-rs--boundaries-timer
+                           'jieba-rs--tags-timer))
+         (function (if boundaries #'jieba-rs--refresh-boundaries
+                     #'jieba-rs--refresh-tags)))
+    (when (symbol-value timer-variable)
+      (cancel-timer (symbol-value timer-variable)))
+    (set timer-variable
+         (run-with-idle-timer
+          (or delay 0) nil #'jieba-rs--run-refresh
+          (current-buffer) (or window (get-buffer-window nil t))
+          function timer-variable))))
+
 (defun jieba-rs--clear-boundaries ()
   "Remove boundary overlays and cancel scheduled refresh."
   (mapc #'delete-overlay jieba-rs-boundaries-overlays)
@@ -346,27 +374,13 @@ In text terminals this falls back to the echo area."
   (jieba-rs--clear-boundaries)
   (add-hook 'after-change-functions
             #'jieba-rs--boundaries-after-change nil t)
-  (if (> (buffer-size) 10000)
-      (let ((buf (current-buffer)))
-        (setq jieba-rs--boundaries-timer
-              (run-with-idle-timer
-               0.15 nil
-               (lambda ()
-                 (when (buffer-live-p buf)
-                   (with-current-buffer buf
-                     (jieba-rs--refresh-boundaries)))))))
-    (setq jieba-rs--boundaries-timer
-          (run-with-idle-timer 0 nil
-                               #'jieba-rs--refresh-boundaries))))
+  (jieba-rs--schedule-refresh
+   'boundaries nil (if (> (buffer-size) 10000) 0.15 0)))
 
-(defun jieba-rs--boundaries-window-scroll (_win _new-start)
-  "Schedule a boundary refresh on window scroll."
+(defun jieba-rs--boundaries-window-scroll (window _new-start)
+  "Schedule a boundaries refresh when WINDOW scrolls."
   (when jieba-rs-boundaries-overlays
-    (when jieba-rs--boundaries-timer
-      (cancel-timer jieba-rs--boundaries-timer))
-    (setq jieba-rs--boundaries-timer
-          (run-with-idle-timer 0 nil
-                               #'jieba-rs--refresh-boundaries))))
+    (jieba-rs--schedule-refresh 'boundaries window)))
 
 (defun jieba-rs--refresh-boundaries ()
   "Rebuild boundary overlays for the visible window."
@@ -435,18 +449,8 @@ In text terminals this falls back to the echo area."
   (jieba-rs--clear-tags)
   (add-hook 'after-change-functions
             #'jieba-rs--tags-after-change nil t)
-  (if (> (buffer-size) 10000)
-      (let ((buf (current-buffer)))
-        (setq jieba-rs--tags-timer
-              (run-with-idle-timer
-               0.15 nil
-               (lambda ()
-                 (when (buffer-live-p buf)
-                   (with-current-buffer buf
-                     (jieba-rs--refresh-tags)))))))
-    (setq jieba-rs--tags-timer
-          (run-with-idle-timer 0 nil
-                               #'jieba-rs--refresh-tags))))
+  (jieba-rs--schedule-refresh
+   'tags nil (if (> (buffer-size) 10000) 0.15 0)))
 
 (defun jieba-rs--refresh-tags ()
   "Rebuild tag overlays for the visible window."
@@ -457,14 +461,10 @@ In text terminals this falls back to the echo area."
   (setq jieba-rs-tag-overlays nil)
   (jieba-rs--show-tags))
 
-(defun jieba-rs--tags-window-scroll (_win _new-start)
-  "Schedule a tag refresh on window scroll."
+(defun jieba-rs--tags-window-scroll (window _new-start)
+  "Schedule a tags refresh when WINDOW scrolls."
   (when jieba-rs-tag-overlays
-    (when jieba-rs--tags-timer
-      (cancel-timer jieba-rs--tags-timer))
-    (setq jieba-rs--tags-timer
-          (run-with-idle-timer 0 nil
-                               #'jieba-rs--refresh-tags))))
+    (jieba-rs--schedule-refresh 'tags window)))
 
 (defun jieba-rs--show-tags ()
   "Show POS tags in the current buffer."
@@ -514,17 +514,9 @@ In text terminals this falls back to the echo area."
               '(recenter recenter-top-bottom
                          beginning-of-buffer end-of-buffer))
     (when jieba-rs-boundaries-overlays
-      (when jieba-rs--boundaries-timer
-        (cancel-timer jieba-rs--boundaries-timer))
-      (setq jieba-rs--boundaries-timer
-            (run-with-idle-timer 0 nil
-                                 #'jieba-rs--refresh-boundaries)))
+      (jieba-rs--schedule-refresh 'boundaries))
     (when jieba-rs-tag-overlays
-      (when jieba-rs--tags-timer
-        (cancel-timer jieba-rs--tags-timer))
-      (setq jieba-rs--tags-timer
-            (run-with-idle-timer 0 nil
-                                 #'jieba-rs--refresh-tags)))))
+      (jieba-rs--schedule-refresh 'tags))))
 
 (defun jieba-rs-add-word (word &optional freq tag persist)
   "Add WORD to the Jieba dictionary.

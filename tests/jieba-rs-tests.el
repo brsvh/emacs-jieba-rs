@@ -360,5 +360,46 @@
       (should (plist-member first :keyword))
       (should (plist-member first :weight)))))
 
+(ert-deftest jieba-rs-tests-refresh-keeps-source-buffer ()
+  "Refresh the source window without modifying the selected buffer."
+  (save-window-excursion
+    (let ((source (generate-new-buffer " *jieba-source*"))
+          (other (generate-new-buffer " *jieba-other*")))
+      (unwind-protect
+          (progn
+            (switch-to-buffer source)
+            (insert "我们中出了一个叛徒")
+            (let ((source-window (selected-window))
+                  (other-window (split-window)))
+              (set-window-buffer other-window other)
+              (dolist (kind '(boundaries tags))
+                (with-current-buffer source
+                  (jieba-rs--schedule-refresh kind source-window)
+                  (let ((timer (if (eq kind 'boundaries)
+                                   jieba-rs--boundaries-timer
+                                 jieba-rs--tags-timer)))
+                    (select-window other-window)
+                    (unwind-protect
+                        (apply (timer--function timer) (timer--args timer))
+                      (cancel-timer timer))))
+                (with-current-buffer other
+                  (should-not jieba-rs-boundaries-overlays)
+                  (should-not jieba-rs-tag-overlays)))
+              (with-current-buffer source
+                (should jieba-rs-boundaries-overlays)
+                (should jieba-rs-tag-overlays))))
+        (with-current-buffer source
+          (jieba-rs--clear-boundaries)
+          (jieba-rs--clear-tags))
+        (kill-buffer source)
+        (kill-buffer other)))))
+
+(ert-deftest jieba-rs-tests-refresh-ignores-dead-buffer ()
+  "A pending callback tolerates a killed source buffer."
+  (let ((source (generate-new-buffer " *jieba-dead*")))
+    (kill-buffer source)
+    (jieba-rs--run-refresh source nil #'ignore
+                           'jieba-rs--boundaries-timer)))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

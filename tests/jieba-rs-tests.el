@@ -525,5 +525,34 @@
     (should-not (memq boundary-timer timer-idle-list))
     (should-not (memq tag-timer timer-idle-list))))
 
+(ert-deftest jieba-rs-tests-persist-separates-records ()
+  "Keep records separate in empty and unterminated dictionaries."
+  (dolist (initial '("" "甲乙 10 nz" "甲乙 10 nz\n"))
+    (let ((jieba-rs-user-dict (make-temp-file "jieba-records-")))
+      (unwind-protect
+          (progn
+            (with-temp-file jieba-rs-user-dict (insert initial))
+            (jieba-rs-add-word "审查临时测试词" 100 "nz" t)
+            (with-temp-buffer
+              (insert-file-contents jieba-rs-user-dict)
+              (should (equal (buffer-string)
+                             (concat (if (string-empty-p initial) ""
+                                       "甲乙 10 nz\n")
+                                     "审查临时测试词 100 nz\n"))))
+            (jieba-rs-module-load-user-dict jieba-rs-user-dict))
+        (delete-file jieba-rs-user-dict)))))
+
+(ert-deftest jieba-rs-tests-invalid-persistence-does-not-add-word ()
+  "Reject invalid persistence settings before changing the dictionary."
+  (cl-letf (((symbol-function 'jieba-rs-module-add-word)
+             (lambda (&rest _) (ert-fail "Dictionary was modified"))))
+    (let ((jieba-rs-user-dict nil))
+      (should-error (jieba-rs-add-word "测试" 100 nil t) :type 'user-error))
+    (let ((jieba-rs-user-dict "/unused/dictionary"))
+      (dolist (word '("" "两个 词" "两行\n词"))
+        (should-error (jieba-rs-add-word word 100 nil t) :type 'user-error))
+      (should-error (jieba-rs-add-word "测试" 100 "n x" t)
+                    :type 'user-error))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

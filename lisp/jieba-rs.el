@@ -104,6 +104,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'subr-x)
 
 (declare-function jieba-rs-module-segment
                   "ext:jieba-rs-module" (text hmm))
@@ -538,29 +539,49 @@ In text terminals this falls back to the echo area."
     (when jieba-rs--tags-enabled
       (jieba-rs--schedule-refresh 'tags))))
 
+(defun jieba-rs--append-word (file word freq tag)
+  "Append WORD with FREQ and TAG as a separate record in FILE."
+  (with-temp-buffer
+    (let ((size (when (file-exists-p file)
+                  (file-attribute-size (file-attributes file)))))
+      (when (and size (> size 0))
+        (insert-file-contents-literally file nil (1- size) size))
+      (let ((needs-newline (and (> (buffer-size) 0)
+                                (not (eq (char-before (point-max)) ?\n)))))
+        (erase-buffer)
+        (when needs-newline (insert "\n"))))
+    (insert (format "%s %d%s\n" word freq
+                    (if tag (concat " " tag) "")))
+    (let ((coding-system-for-write 'utf-8-unix))
+      (write-region nil nil file 'append 'quiet))))
+
 (defun jieba-rs-add-word (word &optional freq tag persist)
   "Add WORD to the Jieba dictionary.
 FREQ is the word frequency; nil triggers auto-suggestion.
 TAG is an optional POS tag.
-With prefix arg PERSIST, append the entry to the user dict file."
+With prefix arg PERSIST, append the entry to the user dict file.
+If writing the file fails, WORD remains available for this session."
   (interactive
    (list (read-string "Word: ")
          nil nil current-prefix-arg))
   (unless (featurep 'jieba-rs-module)
     (user-error "Jieba native module not loaded"))
-  (let ((f (jieba-rs-module-add-word word freq tag)))
-    (when persist
-      (unless jieba-rs-user-dict
-        (user-error "Cannot persist: jieba-rs-user-dict is nil"))
-      (let ((dir (file-name-directory
-                  (expand-file-name jieba-rs-user-dict))))
-        (unless (file-exists-p dir)
-          (make-directory dir t)))
-      (with-temp-buffer
-        (insert (format "%s %d %s\n" word f (or tag "")))
-        (write-region nil nil (expand-file-name jieba-rs-user-dict)
-                      'append 'quiet)))
-    f))
+  (let ((file (when persist
+                (unless jieba-rs-user-dict
+                  (user-error "Cannot persist: jieba-rs-user-dict is nil"))
+                (unless (and (stringp word) (not (string-empty-p word))
+                             (not (string-match-p "[[:space:]\0]" word))
+                             (or (null tag)
+                                 (and (stringp tag)
+                                      (not (string-match-p "[[:space:]\0]" tag)))))
+                  (user-error "Dictionary words and tags must be single fields"))
+                (expand-file-name jieba-rs-user-dict))))
+    (when file
+      (make-directory (file-name-directory file) t))
+    (let ((f (jieba-rs-module-add-word word freq tag)))
+      (when file
+        (jieba-rs--append-word file word f tag))
+      f)))
 
 (defun jieba-rs-forward-word (&optional arg)
   "Move point forward ARG Chinese words."

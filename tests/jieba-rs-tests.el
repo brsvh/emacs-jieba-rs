@@ -401,5 +401,20 @@
     (jieba-rs--run-refresh source nil #'ignore
                            'jieba-rs--boundaries-timer)))
 
+(ert-deftest jieba-rs-tests-keyword-count-bounds ()
+  "Bound huge counts without poisoning subsequent module calls."
+  (dolist (method '("tfidf" "textrank"))
+    (should (equal (jieba-rs-module-extract-keywords
+                    "南京市长江大桥" most-positive-fixnum method)
+                   (jieba-rs-module-extract-keywords
+                    "南京市长江大桥" 10 method)))
+    (should (equal (jieba-rs-module-extract-keywords "" 100 method)
+                   []))
+    (should (equal (jieba-rs-module-extract-keywords "测试" 0 method)
+                   []))
+    (should-error (jieba-rs-module-extract-keywords "测试" -1 method)))
+  (should (equal (jieba-rs-module-segment "正常测试" nil)
+                 ["正常" "测试"])))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

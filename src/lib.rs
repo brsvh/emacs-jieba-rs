@@ -182,6 +182,9 @@ fn extract_keywords<'a>(
     } else {
         10
     };
+    // At most one keyword can start at each input character.  Bound
+    // upstream result allocation even for an arbitrarily large K.
+    let k = k.min(text.chars().count());
     let use_tfidf = method.is_not_nil()
         && method.into_rust::<String>()? == "tfidf";
     let jieba = JIEBA.lock().unwrap();

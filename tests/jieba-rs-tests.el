@@ -1328,5 +1328,23 @@
           (should (overlays-in (point-min) (point-max)))
           (should-not (symbol-value timer-var)))))))
 
+(ert-deftest jieba-rs-tests-persistence-rejects-empty-tag ()
+  "Reject an unrepresentable tag before changing memory or the file."
+  (let ((jieba-rs-user-dict (make-temp-file "jieba-empty-tag-"))
+        (version (jieba-rs-module-dictionary-version))
+        (before (jieba-rs-module-segment-tag "中国" nil)))
+    (unwind-protect
+        (progn
+          (with-temp-file jieba-rs-user-dict (insert "原词 100 n\n"))
+          (should-error (jieba-rs-add-word "中国" 10000 "" t)
+                        :type 'user-error)
+          (should (= version (jieba-rs-module-dictionary-version)))
+          (should (equal before (jieba-rs-module-segment-tag "中国" nil)))
+          (should (equal (with-temp-buffer
+                           (insert-file-contents jieba-rs-user-dict)
+                           (buffer-string))
+                         "原词 100 n\n")))
+      (delete-file jieba-rs-user-dict))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

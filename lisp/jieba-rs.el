@@ -760,6 +760,7 @@ of the current buffer's syntax table.")
 FREQ is the word frequency; nil triggers auto-suggestion.
 TAG is an optional POS tag.
 With prefix arg PERSIST, append the entry to the user dict file.
+A saved TAG must be nil or a nonempty single field.
 If writing the file fails, WORD remains available for this session."
   (interactive
    (list (read-string "Word: ")
@@ -775,6 +776,7 @@ If writing the file fails, WORD remains available for this session."
                                    word))
                              (or (null tag)
                                  (and (stringp tag)
+                                      (not (string-empty-p tag))
                                       (not (string-match-p
                                             jieba-rs--dictionary-field-separator-regexp
                                             tag)))))

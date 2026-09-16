@@ -217,15 +217,19 @@ fn segment_tag<'a>(
     // Lisp allocation can run GC hooks that reenter the module.
     let len = tags.len();
     let vec = env.make_vector(len, ())?;
+    let start_key = env.intern(":start")?;
+    let end_key = env.intern(":end")?;
+    let word_key = env.intern(":word")?;
+    let category_key = env.intern(":category")?;
     for (i, (start, end, word, category)) in tags.iter().enumerate() {
         let plist = env.list(&[
-            env.intern(":start")?,
+            start_key,
             (*start as i64).into_lisp(env)?,
-            env.intern(":end")?,
+            end_key,
             (*end as i64).into_lisp(env)?,
-            env.intern(":word")?,
+            word_key,
             (*word).into_lisp(env)?,
-            env.intern(":category")?,
+            category_key,
             category.as_str().into_lisp(env)?,
         ])?;
         vec.set(i, plist)?;
@@ -362,11 +366,13 @@ fn extract_keywords<'a>(
     };
     drop(dictionary);
     let vec = env.make_vector(keywords.len(), ())?;
+    let keyword_key = env.intern(":keyword")?;
+    let weight_key = env.intern(":weight")?;
     for (i, kw) in keywords.iter().enumerate() {
         let plist = env.list(&[
-            env.intern(":keyword")?,
+            keyword_key,
             kw.keyword.as_str().into_lisp(env)?,
-            env.intern(":weight")?,
+            weight_key,
             kw.weight.into_lisp(env)?,
         ])?;
         vec.set(i, plist)?;

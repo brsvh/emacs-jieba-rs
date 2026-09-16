@@ -692,6 +692,13 @@ Each token is a vector of start, end, word and optional category."
     (let ((coding-system-for-write 'utf-8-unix))
       (write-region nil nil file 'append 'quiet))))
 
+(defconst jieba-rs--dictionary-field-separator-regexp
+  (concat "[\0\t-\r \u0085\u00a0\u1680\u2000-\u200a"
+          "\u2028\u2029\u202f\u205f\u3000]")
+  "NUL and Unicode White_Space characters forbidden in saved fields.
+The whitespace set matches Rust's `str::split_whitespace' independently
+of the current buffer's syntax table.")
+
 (defun jieba-rs-add-word (word &optional freq tag persist)
   "Add WORD to the Jieba dictionary.
 FREQ is the word frequency; nil triggers auto-suggestion.
@@ -707,10 +714,14 @@ If writing the file fails, WORD remains available for this session."
                 (unless jieba-rs-user-dict
                   (user-error "Cannot persist: jieba-rs-user-dict is nil"))
                 (unless (and (stringp word) (not (string-empty-p word))
-                             (not (string-match-p "[[:space:]\0]" word))
+                             (not (string-match-p
+                                   jieba-rs--dictionary-field-separator-regexp
+                                   word))
                              (or (null tag)
                                  (and (stringp tag)
-                                      (not (string-match-p "[[:space:]\0]" tag)))))
+                                      (not (string-match-p
+                                            jieba-rs--dictionary-field-separator-regexp
+                                            tag)))))
                   (user-error "Dictionary words and tags must be single fields"))
                 (expand-file-name jieba-rs-user-dict))))
     (when file

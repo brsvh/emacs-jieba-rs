@@ -719,6 +719,31 @@
       (should-error (jieba-rs-add-word "测试" 100 "n x" t)
                     :type 'user-error))))
 
+(ert-deftest jieba-rs-tests-persistence-rejects-unicode-whitespace ()
+  "Reject file separators in words and tags under different syntax tables."
+  (let ((jieba-rs-user-dict (make-temp-file "jieba-fields-")))
+    (unwind-protect
+        (progn
+          (with-temp-file jieba-rs-user-dict (insert "原有词语 100 n\n"))
+          (cl-letf (((symbol-function 'jieba-rs-module-add-word)
+                     (lambda (&rest _) (ert-fail "Dictionary was modified"))))
+            (dolist (mode '(fundamental-mode text-mode emacs-lisp-mode))
+              (with-temp-buffer
+                (funcall mode)
+                (dolist (character '(0 9 10 11 12 13 32 #x85 #xa0 #x1680
+                                       #x2000 #x2001 #x2002 #x2003 #x2004
+                                       #x2005 #x2006 #x2007 #x2008 #x2009 #x200a
+                                       #x2028 #x2029 #x202f #x205f #x3000))
+                  (let ((field (concat "甲" (string character) "乙")))
+                    (should-error (jieba-rs-add-word field 100 "n" t)
+                                  :type 'user-error)
+                    (should-error (jieba-rs-add-word "正常词语" 100 field t)
+                                  :type 'user-error))))))
+          (with-temp-buffer
+            (insert-file-contents jieba-rs-user-dict)
+            (should (equal (buffer-string) "原有词语 100 n\n"))))
+      (delete-file jieba-rs-user-dict))))
+
 (ert-deftest jieba-rs-tests-update-existing-word-tag ()
   "Apply explicit tags to existing words and retain them when omitted."
   (jieba-rs-module-add-word "词性覆盖测试词" 100 "old")

@@ -426,6 +426,7 @@ In text terminals this falls back to the echo area."
 (defun jieba-rs--line-tokens (position &optional tagged normalized)
   "Return cached line bounds and tokens around POSITION.
 TAGGED requests POS categories; NORMALIZED applies overlay rules.
+Normalized boundaries reuse POS results while the tag display is enabled.
 Each token is a vector of start, end, word and optional category."
   (let ((context (list (buffer-chars-modified-tick)
                        (point-min) (point-max) jieba-rs-hmm major-mode
@@ -437,10 +438,14 @@ Each token is a vector of start, end, word and optional category."
             jieba-rs--segment-cache (make-hash-table :test #'equal))))
   (save-excursion
     (goto-char position)
-    (let* ((beg (line-beginning-position))
+    (let* ((tagged (or tagged (and normalized jieba-rs--tags-enabled)))
+           (beg (line-beginning-position))
            (end (min (point-max) (1+ (line-end-position))))
            (key (list beg end tagged normalized))
-           (cached (gethash key jieba-rs--segment-cache))
+           (cached (or (gethash key jieba-rs--segment-cache)
+                       (and (not tagged)
+                            (gethash (list beg end t normalized)
+                                     jieba-rs--segment-cache))))
            (line
             (or cached
                 (let* ((text (if normalized (jieba-rs--normalize-text beg end)

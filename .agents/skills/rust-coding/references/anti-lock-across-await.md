@@ -104,15 +104,15 @@ impl BetterService {
 
 ## What Can Cross Await
 
-| Type                        | Safe Across Await?       |
-| --------------------------- | ------------------------ |
-| `std::sync::Mutex` guard    | **NO** - can deadlock    |
-| `std::sync::RwLock` guard   | **NO** - can deadlock    |
-| `tokio::sync::Mutex` guard  | Allowed but blocks tasks |
+| Type | Safe Across Await? |
+| -- | -- |
+| `std::sync::Mutex` guard | **NO** - can deadlock |
+| `std::sync::RwLock` guard | **NO** - can deadlock |
+| `tokio::sync::Mutex` guard | Allowed but blocks tasks |
 | `tokio::sync::RwLock` guard | Allowed but blocks tasks |
-| Owned values                | Yes                      |
-| `Arc<T>`                    | Yes                      |
-| References                  | Depends on lifetime      |
+| Owned values | Yes |
+| `Arc<T>` | Yes |
+| References | Depends on lifetime |
 
 ## Detection
 

@@ -94,16 +94,16 @@ let middle = indexed.get(indexed.len() / 2);
 
 ## Iterator Methods That Avoid Collection
 
-| Instead of Collecting to... | Use                |
-| --------------------------- | ------------------ |
-| Check if empty              | \`.any(            |
-| Check if any match          | `.any(predicate)`  |
-| Check if all match          | `.all(predicate)`  |
-| Count elements              | `.count()`         |
-| Sum elements                | `.sum()`           |
-| Find first                  | `.find(predicate)` |
-| Get first                   | `.next()`          |
-| Get last                    | `.last()`          |
+| Instead of Collecting to... | Use |
+| -- | -- |
+| Check if empty | \`.any( |
+| Check if any match | `.any(predicate)` |
+| Check if all match | `.all(predicate)` |
+| Count elements | `.count()` |
+| Sum elements | `.sum()` |
+| Find first | `.find(predicate)` |
+| Get first | `.next()` |
+| Get last | `.last()` |
 
 ## Pattern: Deferred Collection
 
@@ -120,11 +120,11 @@ let vec: Vec<_> = valid_items(&items).collect();  // Collection when needed
 
 ## Comparison
 
-| Pattern                        | Allocations | Passes |
-| ------------------------------ | ----------- | ------ |
-| `.collect()` each step         | N           | N      |
-| Single chain, one `.collect()` | 1           | 1      |
-| No collection (streaming)      | 0           | 1      |
+| Pattern | Allocations | Passes |
+| -- | -- | -- |
+| `.collect()` each step | N | N |
+| Single chain, one `.collect()` | 1 | 1 |
+| No collection (streaming) | 0 | 1 |
 
 ## See Also
 

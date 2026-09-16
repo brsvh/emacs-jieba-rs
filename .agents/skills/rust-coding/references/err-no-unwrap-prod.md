@@ -85,13 +85,13 @@ let port = config.get("port")
 
 ## Alternatives to unwrap()
 
-| Situation                    | Use Instead                          |
-| ---------------------------- | ------------------------------------ |
-| Can propagate error          | `?` operator                         |
-| Has sensible default         | `unwrap_or()`, `unwrap_or_default()` |
-| Default requires computation | `unwrap_or_else(\|\| ...)`           |
-| Internal invariant           | `expect("explanation")`              |
-| Need to handle both cases    | `match` or `if let`                  |
+| Situation | Use Instead |
+| -- | -- |
+| Can propagate error | `?` operator |
+| Has sensible default | `unwrap_or()`, `unwrap_or_default()` |
+| Default requires computation | `unwrap_or_else(\|\| ...)` |
+| Internal invariant | `expect("explanation")` |
+| Need to handle both cases | `match` or `if let` |
 
 ## Clippy Lints
 

@@ -161,11 +161,11 @@ fn load_config(path: &Path) -> Result<Config, ConfigError> {
 
 ## Library vs Application
 
-| Context     | Crate                                           | Why                              |
-| ----------- | ----------------------------------------------- | -------------------------------- |
-| Library     | `thiserror`                                     | Typed errors users can match     |
-| Application | `anyhow`                                        | Easy error handling with context |
-| Both        | `thiserror` for public API, `anyhow` internally | Best of both                     |
+| Context | Crate | Why |
+| -- | -- | -- |
+| Library | `thiserror` | Typed errors users can match |
+| Application | `anyhow` | Easy error handling with context |
+| Both | `thiserror` for public API, `anyhow` internally | Best of both |
 
 ## See Also
 

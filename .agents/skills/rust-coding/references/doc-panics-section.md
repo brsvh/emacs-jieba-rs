@@ -67,15 +67,15 @@ pub fn checked_divide(dividend: i32, divisor: i32) -> Option<i32> {
 
 ## Common Panic Conditions
 
-| Operation              | Panic Condition       |
-| ---------------------- | --------------------- |
-| Index access `[i]`     | Index out of bounds   |
-| Division `/`, `%`      | Division by zero      |
-| `.unwrap()`            | `None` or `Err` value |
-| `.expect()`            | `None` or `Err` value |
-| `slice::split_at(mid)` | `mid > len`           |
-| `Vec::remove(i)`       | `i >= len`            |
-| Overflow (debug)       | Integer overflow      |
+| Operation | Panic Condition |
+| -- | -- |
+| Index access `[i]` | Index out of bounds |
+| Division `/`, `%` | Division by zero |
+| `.unwrap()` | `None` or `Err` value |
+| `.expect()` | `None` or `Err` value |
+| `slice::split_at(mid)` | `mid > len` |
+| `Vec::remove(i)` | `i >= len` |
+| Overflow (debug) | Integer overflow |
 
 ## Pattern: Panic vs Return Error
 

@@ -61,14 +61,14 @@ fn reuse_buffer() {
 
 ## Drain Methods
 
-| Collection     | Method          | Behavior                      |
-| -------------- | --------------- | ----------------------------- |
-| `Vec<T>`       | `.drain(range)` | Remove range, shift remaining |
-| `Vec<T>`       | `.drain(..)`    | Remove all (like clear)       |
-| `VecDeque<T>`  | `.drain(range)` | Remove range                  |
-| `String`       | `.drain(range)` | Remove char range             |
-| `HashMap<K,V>` | `.drain()`      | Remove all entries            |
-| `HashSet<T>`   | `.drain()`      | Remove all elements           |
+| Collection | Method | Behavior |
+| -- | -- | -- |
+| `Vec<T>` | `.drain(range)` | Remove range, shift remaining |
+| `Vec<T>` | `.drain(..)` | Remove all (like clear) |
+| `VecDeque<T>` | `.drain(range)` | Remove range |
+| `String` | `.drain(range)` | Remove char range |
+| `HashMap<K,V>` | `.drain()` | Remove all entries |
+| `HashSet<T>` | `.drain()` | Remove all elements |
 
 ## Pattern: Batch Processing
 
@@ -113,10 +113,10 @@ fn process_and_clear(map: &mut HashMap<String, Value>) {
 
 ## drain vs clear vs take
 
-| Operation          | Elements  | Capacity   | Returns          |
-| ------------------ | --------- | ---------- | ---------------- |
-| `.clear()`         | Removed   | Kept       | Nothing          |
-| `.drain(..)`       | Removed   | Kept       | Iterator         |
+| Operation | Elements | Capacity | Returns |
+| -- | -- | -- | -- |
+| `.clear()` | Removed | Kept | Nothing |
+| `.drain(..)` | Removed | Kept | Iterator |
 | `std::mem::take()` | Moved out | Reset to 0 | Owned collection |
 
 ```rust

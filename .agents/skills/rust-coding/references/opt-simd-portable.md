@@ -133,12 +133,12 @@ unsafe fn sum_avx2(data: &[f32]) -> f32 {
 
 ## Choosing an Approach
 
-| Approach          | Stability | Portability | Control |
-| ----------------- | --------- | ----------- | ------- |
-| Autovectorization | Stable    | Excellent   | Low     |
-| `wide` crate      | Stable    | Good        | Medium  |
-| Portable SIMD     | Nightly   | Excellent   | High    |
-| Intrinsics        | Stable    | None        | Maximum |
+| Approach | Stability | Portability | Control |
+| -- | -- | -- | -- |
+| Autovectorization | Stable | Excellent | Low |
+| `wide` crate | Stable | Good | Medium |
+| Portable SIMD | Nightly | Excellent | High |
+| Intrinsics | Stable | None | Maximum |
 
 ## See Also
 

@@ -134,11 +134,11 @@ let mut deque = VecDeque::new();
 
 ## Comparison
 
-| Method                    | Allocation    | Buffer Reuse |
-| ------------------------- | ------------- | ------------ |
-| `.collect()`              | New each time | No           |
-| `.collect_into(&mut buf)` | Reuses buffer | Yes          |
-| `buf.extend(iter)`        | Reuses buffer | Yes          |
+| Method | Allocation | Buffer Reuse |
+| -- | -- | -- |
+| `.collect()` | New each time | No |
+| `.collect_into(&mut buf)` | Reuses buffer | Yes |
+| `buf.extend(iter)` | Reuses buffer | Yes |
 
 ## See Also
 

@@ -46,11 +46,11 @@ fn main() {
 
 ## Key Points
 
-| Approach     | Levels | Structured | Async-aware spans | `log` compat      |
-| ------------ | ------ | ---------- | ----------------- | ----------------- |
-| `println!`   | No     | No         | No                | No                |
-| `log` facade | Yes    | No         | No                | Yes               |
-| `tracing`    | Yes    | Yes        | Yes               | Yes (via feature) |
+| Approach | Levels | Structured | Async-aware spans | `log` compat |
+| -- | -- | -- | -- | -- |
+| `println!` | No | No | No | No |
+| `log` facade | Yes | No | No | Yes |
+| `tracing` | Yes | Yes | Yes | Yes (via feature) |
 
 - Add to `Cargo.toml`: `tracing = "0.1"` for all crates;
   `tracing-subscriber = { version = "0.3", features = ["env-filter"] }` for

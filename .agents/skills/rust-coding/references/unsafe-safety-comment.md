@@ -14,7 +14,7 @@ There are two distinct levels of documentation:
 
 1. **`# Safety` in a doc comment on an `unsafe fn`** — describes the *caller's*
    obligations (preconditions that must hold for the call to be sound).
-1. **`// SAFETY:` inline comment above each `unsafe {}` block** — explains why
+2. **`// SAFETY:` inline comment above each `unsafe {}` block** — explains why
    *this specific operation* upholds the required invariants at the call site.
 
 Both are required. Omitting either leaves an auditor unable to verify soundness.

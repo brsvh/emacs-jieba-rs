@@ -19,12 +19,12 @@ code. Current for Rust 1.96 (2024 edition).
 
 1. Identify the code's role first: new function, struct, module, error handling,
    async code, unsafe block, API design, optimization, or refactoring.
-1. Inspect neighboring `.rs` files for the crate conventions: edition, module
+2. Inspect neighboring `.rs` files for the crate conventions: edition, module
    structure, error handling style, async runtime, dependency choices, and local
    patterns.
-1. Keep changes scoped. Preserve existing public APIs, feature flags, and module
+3. Keep changes scoped. Preserve existing public APIs, feature flags, and module
    boundaries unless the user asks for a breaking change.
-1. Load the relevant rule files from `references/` by category prefix:
+4. Load the relevant rule files from `references/` by category prefix:
    - `own-*` — Ownership & Borrowing (CRITICAL)
    - `err-*` — Error Handling (CRITICAL)
    - `mem-*` — Memory Optimization (CRITICAL)
@@ -39,8 +39,8 @@ code. Current for Rust 1.96 (2024 edition).
      Medium priority categories
    - `proj-*`, `lint-*` — Low priority categories
    - `anti-*` — Anti-patterns reference
-1. Apply rules by priority: CRITICAL > HIGH > MEDIUM > LOW.
-1. Validate with the narrowest useful command before finishing:
+5. Apply rules by priority: CRITICAL > HIGH > MEDIUM > LOW.
+6. Validate with the narrowest useful command before finishing:
    - `cargo check` for type and borrow checking
    - `cargo fmt --check` for formatting
    - `cargo clippy` for linting
@@ -49,34 +49,34 @@ code. Current for Rust 1.96 (2024 edition).
 
 ## Rule Categories by Priority
 
-| Priority | Category                    | Impact    | Prefix     | Rules |
-| -------- | --------------------------- | --------- | ---------- | ----- |
-| 1        | Ownership & Borrowing       | CRITICAL  | `own-`     | 12    |
-| 2        | Error Handling              | CRITICAL  | `err-`     | 12    |
-| 3        | Memory Optimization         | CRITICAL  | `mem-`     | 17    |
-| 4        | Unsafe Code                 | CRITICAL  | `unsafe-`  | 7     |
-| 5        | API Design                  | HIGH      | `api-`     | 17    |
-| 6        | Async/Await                 | HIGH      | `async-`   | 18    |
-| 7        | Concurrency                 | HIGH      | `conc-`    | 4     |
-| 8        | Compiler Optimization       | HIGH      | `opt-`     | 12    |
-| 9        | Numeric & Arithmetic Safety | HIGH      | `num-`     | 5     |
-| 10       | Type Safety                 | MEDIUM    | `type-`    | 13    |
-| 11       | Trait & Generics Design     | MEDIUM    | `trait-`   | 6     |
-| 12       | Conversions                 | MEDIUM    | `conv-`    | 3     |
-| 13       | Const & Compile-Time        | MEDIUM    | `const-`   | 4     |
-| 14       | Serde                       | MEDIUM    | `serde-`   | 8     |
-| 15       | Pattern Matching            | MEDIUM    | `pat-`     | 5     |
-| 16       | Macros                      | MEDIUM    | `macro-`   | 8     |
-| 17       | Closures                    | MEDIUM    | `closure-` | 5     |
-| 18       | Collections                 | MEDIUM    | `coll-`    | 4     |
-| 19       | Naming Conventions          | MEDIUM    | `name-`    | 16    |
-| 20       | Testing                     | MEDIUM    | `test-`    | 15    |
-| 21       | Documentation               | MEDIUM    | `doc-`     | 12    |
-| 22       | Observability               | MEDIUM    | `obs-`     | 7     |
-| 23       | Performance Patterns        | MEDIUM    | `perf-`    | 13    |
-| 24       | Project Structure           | LOW       | `proj-`    | 14    |
-| 25       | Clippy & Linting            | LOW       | `lint-`    | 13    |
-| 26       | Anti-patterns               | REFERENCE | `anti-`    | 15    |
+| Priority | Category | Impact | Prefix | Rules |
+| -- | -- | -- | -- | -- |
+| 1 | Ownership & Borrowing | CRITICAL | `own-` | 12 |
+| 2 | Error Handling | CRITICAL | `err-` | 12 |
+| 3 | Memory Optimization | CRITICAL | `mem-` | 17 |
+| 4 | Unsafe Code | CRITICAL | `unsafe-` | 7 |
+| 5 | API Design | HIGH | `api-` | 17 |
+| 6 | Async/Await | HIGH | `async-` | 18 |
+| 7 | Concurrency | HIGH | `conc-` | 4 |
+| 8 | Compiler Optimization | HIGH | `opt-` | 12 |
+| 9 | Numeric & Arithmetic Safety | HIGH | `num-` | 5 |
+| 10 | Type Safety | MEDIUM | `type-` | 13 |
+| 11 | Trait & Generics Design | MEDIUM | `trait-` | 6 |
+| 12 | Conversions | MEDIUM | `conv-` | 3 |
+| 13 | Const & Compile-Time | MEDIUM | `const-` | 4 |
+| 14 | Serde | MEDIUM | `serde-` | 8 |
+| 15 | Pattern Matching | MEDIUM | `pat-` | 5 |
+| 16 | Macros | MEDIUM | `macro-` | 8 |
+| 17 | Closures | MEDIUM | `closure-` | 5 |
+| 18 | Collections | MEDIUM | `coll-` | 4 |
+| 19 | Naming Conventions | MEDIUM | `name-` | 16 |
+| 20 | Testing | MEDIUM | `test-` | 15 |
+| 21 | Documentation | MEDIUM | `doc-` | 12 |
+| 22 | Observability | MEDIUM | `obs-` | 7 |
+| 23 | Performance Patterns | MEDIUM | `perf-` | 13 |
+| 24 | Project Structure | LOW | `proj-` | 14 |
+| 25 | Clippy & Linting | LOW | `lint-` | 13 |
+| 26 | Anti-patterns | REFERENCE | `anti-` | 15 |
 
 ______________________________________________________________________
 
@@ -671,20 +671,20 @@ ______________________________________________________________________
 
 ## Rule Application by Task
 
-| Task                      | Primary Categories               |
-| ------------------------- | -------------------------------- |
-| New function              | `own-`, `err-`, `name-`, `pat-`  |
-| New struct/API            | `api-`, `type-`, `conv-`, `doc-` |
-| Async code                | `async-`, `own-`                 |
-| Concurrency / parallelism | `conc-`, `async-`, `own-`        |
-| Unsafe code               | `unsafe-`, `type-`, `test-`      |
-| Error handling            | `err-`, `api-`, `pat-`           |
-| Type conversions          | `conv-`, `api-`                  |
-| Serialization (serde)     | `serde-`, `type-`, `api-`        |
-| Numeric / arithmetic      | `num-`, `type-`                  |
-| Macros / code generation  | `macro-`, `anti-`                |
-| Closures / callbacks      | `closure-`, `type-`              |
-| Logging / observability   | `obs-`, `err-`                   |
-| Memory optimization       | `mem-`, `own-`, `perf-`          |
-| Performance tuning        | `opt-`, `mem-`, `perf-`          |
-| Code review               | `anti-`, `lint-`                 |
+| Task | Primary Categories |
+| -- | -- |
+| New function | `own-`, `err-`, `name-`, `pat-` |
+| New struct/API | `api-`, `type-`, `conv-`, `doc-` |
+| Async code | `async-`, `own-` |
+| Concurrency / parallelism | `conc-`, `async-`, `own-` |
+| Unsafe code | `unsafe-`, `type-`, `test-` |
+| Error handling | `err-`, `api-`, `pat-` |
+| Type conversions | `conv-`, `api-` |
+| Serialization (serde) | `serde-`, `type-`, `api-` |
+| Numeric / arithmetic | `num-`, `type-` |
+| Macros / code generation | `macro-`, `anti-` |
+| Closures / callbacks | `closure-`, `type-` |
+| Logging / observability | `obs-`, `err-` |
+| Memory optimization | `mem-`, `own-`, `perf-` |
+| Performance tuning | `opt-`, `mem-`, `perf-` |
+| Code review | `anti-`, `lint-` |

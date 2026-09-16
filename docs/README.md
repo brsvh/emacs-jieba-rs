@@ -46,15 +46,15 @@ make local
 
 启用后，使用 `M-f`、`M-b` 按中文词移动，`M-e`、`M-a` 按中文句移动。其他操作通过 `M-x` 调用：
 
-| 命令                               | 用途                                  |
-| ---------------------------------- | ------------------------------------- |
-| `jieba-rs-segment-region`          | 对选中区域分词                        |
-| `jieba-rs-segment-buffer`          | 对缓冲区分词                          |
-| `jieba-rs-extract-keywords-region` | 提取选中区域的关键词                  |
-| `jieba-rs-extract-keywords-buffer` | 提取缓冲区的关键词                    |
-| `jieba-rs-toggle-boundaries`       | 切换可视词边界                        |
-| `jieba-rs-toggle-tags`             | 切换词性标签                          |
-| `jieba-rs-add-word`                | 添加词语；加 `C-u` 同时保存到用户词典 |
+| 命令 | 用途 |
+| -- | -- |
+| `jieba-rs-segment-region` | 对选中区域分词 |
+| `jieba-rs-segment-buffer` | 对缓冲区分词 |
+| `jieba-rs-extract-keywords-region` | 提取选中区域的关键词 |
+| `jieba-rs-extract-keywords-buffer` | 提取缓冲区的关键词 |
+| `jieba-rs-toggle-boundaries` | 切换可视词边界 |
+| `jieba-rs-toggle-tags` | 切换词性标签 |
+| `jieba-rs-add-word` | 添加词语；加 `C-u` 同时保存到用户词典 |
 
 缓冲区分词和关键词提取都遵守窄化范围。所有选项和外观可通过 `M-x customize-group RET jieba-rs RET` 设置。
 
@@ -64,11 +64,11 @@ make local
 
 区域和缓冲区分词命令将结果显示在结果缓冲区中，由 `jieba-rs-segment-function` 选择算法：
 
-| 模式             | 函数                             | 说明                         |
-| ---------------- | -------------------------------- | ---------------------------- |
-| 精确模式（默认） | `jieba-rs-module-segment`        | 尽可能准确地切分文本         |
-| 全模式           | `jieba-rs-module-segment-all`    | 扫描所有可能的词语           |
-| 搜索引擎模式     | `jieba-rs-module-segment-search` | 生成用于搜索索引的细粒度切分 |
+| 模式 | 函数 | 说明 |
+| -- | -- | -- |
+| 精确模式（默认） | `jieba-rs-module-segment` | 尽可能准确地切分文本 |
+| 全模式 | `jieba-rs-module-segment-all` | 扫描所有可能的词语 |
+| 搜索引擎模式 | `jieba-rs-module-segment-search` | 生成用于搜索索引的细粒度切分 |
 
 `jieba-rs-hmm` 默认为 `t`，控制精确模式和搜索引擎模式的新词发现；全模式不使用 HMM。词移动和可视词边界固定使用精确模式，不受
 `jieba-rs-segment-function` 影响。
@@ -77,12 +77,12 @@ make local
 
 `jieba-rs-mode` 重映射标准移动命令，因此自定义的原命令键位也会沿用：
 
-| 标准命令            | 替代命令                     | 默认键位 |
-| ------------------- | ---------------------------- | -------- |
-| `forward-word`      | `jieba-rs-forward-word`      | `M-f`    |
-| `backward-word`     | `jieba-rs-backward-word`     | `M-b`    |
-| `forward-sentence`  | `jieba-rs-forward-sentence`  | `M-e`    |
-| `backward-sentence` | `jieba-rs-backward-sentence` | `M-a`    |
+| 标准命令 | 替代命令 | 默认键位 |
+| -- | -- | -- |
+| `forward-word` | `jieba-rs-forward-word` | `M-f` |
+| `backward-word` | `jieba-rs-backward-word` | `M-b` |
+| `forward-sentence` | `jieba-rs-forward-sentence` | `M-e` |
+| `backward-sentence` | `jieba-rs-backward-sentence` | `M-a` |
 
 词移动遵守 `jieba-rs-hmm`。句移动以 `。`、`！`、`？` 和换行为分隔符。
 
@@ -121,9 +121,9 @@ make local
 在仓库根目录执行 `nix run .#emacs31-with-jieba-rs`，可用独立初始化目录启动带有本包的 Emacs 31。启动后执行
 `M-x jieba-rs-mode` 即可使用。其他包输出为：
 
-| 输出              | 用途                                 |
-| ----------------- | ------------------------------------ |
-| `jieba-rs`        | 包含 Rust 模块的 Emacs 包            |
+| 输出 | 用途 |
+| -- | -- |
+| `jieba-rs` | 包含 Rust 模块的 Emacs 包 |
 | `jieba-rs-module` | Rust 动态模块；构建时运行 Cargo 测试 |
 
 例如，`nix build .#jieba-rs` 构建 Emacs 包。测试命令见下文。
@@ -183,14 +183,14 @@ nix run .#emacs31-checkdoc-jieba-rs
 
 常用 Makefile 目标：
 
-| 目标                         | 用途                                            |
-| ---------------------------- | ----------------------------------------------- |
-| `make`、`make module`        | 构建 release 模块并复制到 `lisp/`               |
-| `make local`                 | 构建模块，生成包描述和自动加载文件              |
-| `make pkg`、`make autoloads` | 分别生成包描述、自动加载文件                    |
-| `make test`                  | 构建模块并运行 ERT 测试                         |
-| `make check`                 | 构建模块并运行 Cargo、ERT 测试                  |
-| `make clean`                 | 删除 `lisp/` 生成文件和 `dist/`，保留 `target/` |
+| 目标 | 用途 |
+| -- | -- |
+| `make`、`make module` | 构建 release 模块并复制到 `lisp/` |
+| `make local` | 构建模块，生成包描述和自动加载文件 |
+| `make pkg`、`make autoloads` | 分别生成包描述、自动加载文件 |
+| `make test` | 构建模块并运行 ERT 测试 |
+| `make check` | 构建模块并运行 Cargo、ERT 测试 |
+| `make clean` | 删除 `lisp/` 生成文件和 `dist/`，保留 `target/` |
 
 更新 Nix 依赖时，分别运行 `nix flake update` 和 `nix flake update --flake ./tools`，
 更新根目录和维护工具的两份锁文件。

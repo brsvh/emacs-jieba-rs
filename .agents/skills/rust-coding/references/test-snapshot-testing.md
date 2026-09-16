@@ -72,10 +72,10 @@ fn test_cli_output() {
 ## Workflow
 
 1. Run tests for the first time: `cargo test` — insta creates `.snap.new` files.
-1. Review and accept: `cargo insta review` — interactive diff; press `a` to
+2. Review and accept: `cargo insta review` — interactive diff; press `a` to
    accept.
-1. Commit the `.snap` files alongside your code changes.
-1. In CI, run `cargo test` and `cargo insta test --check` (or set
+3. Commit the `.snap` files alongside your code changes.
+4. In CI, run `cargo test` and `cargo insta test --check` (or set
    `INSTA_UPDATE=unseen`) to fail if any snapshot is new or changed without
    being committed.
 
@@ -86,13 +86,13 @@ INSTA_UPDATE=no cargo test
 
 ## When to Use Snapshots vs assert_eq!
 
-| Situation                                   | Prefer                                            |
-| ------------------------------------------- | ------------------------------------------------- |
-| Short, simple values (`true`, `42`, `"ok"`) | `assert_eq!`                                      |
-| Multi-line or structured output             | `assert_debug_snapshot!`                          |
-| JSON/YAML serialization                     | `assert_json_snapshot!` / `assert_yaml_snapshot!` |
-| Rendered error messages                     | `assert_snapshot!`                                |
-| Compiler-error-style output                 | `assert_snapshot!`                                |
+| Situation | Prefer |
+| -- | -- |
+| Short, simple values (`true`, `42`, `"ok"`) | `assert_eq!` |
+| Multi-line or structured output | `assert_debug_snapshot!` |
+| JSON/YAML serialization | `assert_json_snapshot!` / `assert_yaml_snapshot!` |
+| Rendered error messages | `assert_snapshot!` |
+| Compiler-error-style output | `assert_snapshot!` |
 
 ## See Also
 

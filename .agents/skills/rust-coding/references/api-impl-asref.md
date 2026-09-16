@@ -117,13 +117,13 @@ impl AsRef<OsStr> for str { ... }
 
 ## When to Use Which
 
-| Trait             | Use When                               |
-| ----------------- | -------------------------------------- |
-| `&T`              | Single type, simple API                |
-| `AsRef<T>`        | Read-only access, multiple input types |
-| `Into<T>`         | Need to store/own the value            |
-| `Borrow<T>`       | HashMap/HashSet keys, Eq/Hash needed   |
-| `Deref<Target=T>` | Smart pointer semantics                |
+| Trait | Use When |
+| -- | -- |
+| `&T` | Single type, simple API |
+| `AsRef<T>` | Read-only access, multiple input types |
+| `Into<T>` | Need to store/own the value |
+| `Borrow<T>` | HashMap/HashSet keys, Eq/Hash needed |
+| `Deref<Target=T>` | Smart pointer semantics |
 
 ## Pattern: Optional AsRef Bound
 

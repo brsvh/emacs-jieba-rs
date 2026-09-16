@@ -93,11 +93,11 @@ large_enum_variant = "warn"  # Warns when variants differ significantly
 
 ## When to Box
 
-| Largest Variant | Other Variants | Action                |
-| --------------- | -------------- | --------------------- |
-| < 64 bytes      | Similar size   | Don't box             |
-| > 128 bytes     | Much smaller   | Box the large variant |
-| > 256 bytes     | Any            | Definitely box        |
+| Largest Variant | Other Variants | Action |
+| -- | -- | -- |
+| < 64 bytes | Similar size | Don't box |
+| > 128 bytes | Much smaller | Box the large variant |
+| > 256 bytes | Any | Definitely box |
 
 ## Recursive Types Require Boxing
 

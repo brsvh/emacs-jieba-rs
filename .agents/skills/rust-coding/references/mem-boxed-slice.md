@@ -77,12 +77,12 @@ let boxed = vec.into_boxed_slice();  // Now no wasted allocation
 
 ## When to Use What
 
-| Type       | Use When                                                |
-| ---------- | ------------------------------------------------------- |
-| `Vec<T>`   | Collection may grow/shrink                              |
-| `Box<[T]>` | Fixed-size, heap-allocated, many instances              |
-| `[T; N]`   | Fixed-size, stack-allocated, size known at compile time |
-| `&[T]`     | Borrowed view, don't need ownership                     |
+| Type | Use When |
+| -- | -- |
+| `Vec<T>` | Collection may grow/shrink |
+| `Box<[T]>` | Fixed-size, heap-allocated, many instances |
+| `[T; N]` | Fixed-size, stack-allocated, size known at compile time |
+| `&[T]` | Borrowed view, don't need ownership |
 
 ## Box<str> for Immutable Strings
 

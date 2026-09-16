@@ -1,5 +1,4 @@
 {
-  inputs,
   lib,
   pkgs,
   projectRoot,
@@ -8,7 +7,6 @@
 let
   inherit (lib)
     baseNameOf
-    composeManyExtensions
     concatStringsSep
     getExe
     map
@@ -20,13 +18,11 @@ let
     ;
 
   inherit (pkgs)
-    callPackage
     mdformat
     writeText
     ;
 
   inherit (pkgs.formats)
-    json
     toml
     ;
 
@@ -39,8 +35,17 @@ let
     ]
   );
 
+  elfmt =
+    pkgs.callPackage
+      (projectRoot + /tools/elfmt/package.nix)
+      {
+        inherit
+          projectRoot
+          ;
+      };
+
   formatters = with pkgs; [
-    elisp-format
+    elfmt
     mbake
     mdformatWithPlugins
     nixfmt
@@ -117,88 +122,6 @@ in
       ];
 
       path = ".editorconfig";
-    };
-
-    opencode = rec {
-      data = {
-        "$schema" = "https://opencode.ai/config.json";
-
-        agent = {
-          build = {
-            model = "deepseek/deepseek-v4-pro";
-            variant = "max";
-          };
-
-          plan = {
-            model = "deepseek/deepseek-v4-pro";
-            variant = "max";
-          };
-        };
-
-        model = "deepseek/deepseek-v4-pro";
-
-        formatter = with pkgs; {
-          emacs-lisp = {
-            command = [
-              (getExe elisp-format)
-              "$FILE"
-            ];
-
-            extensions = [
-              ".el"
-            ];
-          };
-
-          markdown = {
-            command = [
-              (getExe mdformatWithPlugins)
-              "--extensions=footnote"
-              "--extensions=frontmatter"
-              "--extensions=gfm"
-              "--extensions=gfm_alerts"
-              "--extensions=tables"
-              "--wrap=80"
-              "$FILE"
-            ];
-
-            extensions = [
-              ".md"
-            ];
-          };
-
-          nixfmt = {
-            command = [
-              (getExe nixfmt)
-              "--width=50"
-              "$FILE"
-            ];
-
-            extensions = [
-              ".nix"
-            ];
-          };
-
-          rust = {
-            command = [
-              (getExe rustfmt)
-              "--config"
-              "edition=2024,max_width=70"
-              "$FILE"
-            ];
-          };
-        };
-      };
-
-      deps = [
-        "treefmt"
-      ];
-
-      generator =
-        data: (json { }).generate (baseNameOf path) data;
-
-      packages = formatters;
-
-      path = "opencode.json";
     };
 
     prek = rec {
@@ -305,7 +228,7 @@ in
       data = {
         formatter = {
           emacs-lisp = {
-            command = "elisp-format";
+            command = "elfmt";
 
             includes = [
               "*.el"
@@ -345,7 +268,9 @@ in
               "--extensions=gfm"
               "--extensions=gfm_alerts"
               "--extensions=tables"
+              "--number"
               "--wrap=80"
+              "--compact-tables"
             ];
           };
 

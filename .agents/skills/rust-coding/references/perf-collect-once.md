@@ -95,11 +95,11 @@ sorted.sort_by_key(|x| x.priority);
 
 ## Comparison
 
-| Approach                    | Allocations | Passes | Memory      |
-| --------------------------- | ----------- | ------ | ----------- |
-| Multiple `.collect()`       | N           | N      | O(N × data) |
-| Single chain + `.collect()` | 1           | 1      | O(data)     |
-| No `.collect()` (streaming) | 0           | 1      | O(1)        |
+| Approach | Allocations | Passes | Memory |
+| -- | -- | -- | -- |
+| Multiple `.collect()` | N | N | O(N × data) |
+| Single chain + `.collect()` | 1 | 1 | O(data) |
+| No `.collect()` (streaming) | 0 | 1 | O(1) |
 
 ## Pattern: Collect with Capacity
 

@@ -63,11 +63,11 @@ pub struct Session { /* ... */ }
 
 ## Where to Use Inner Docs
 
-| Location    | Purpose                                           |
-| ----------- | ------------------------------------------------- |
-| `lib.rs`    | Crate-level documentation (appears on crate root) |
-| `mod.rs`    | Module documentation for directory modules        |
-| `module.rs` | Module documentation for single-file modules      |
+| Location | Purpose |
+| -- | -- |
+| `lib.rs` | Crate-level documentation (appears on crate root) |
+| `mod.rs` | Module documentation for directory modules |
+| `module.rs` | Module documentation for single-file modules |
 
 ## Crate Root Example
 
@@ -108,10 +108,10 @@ pub mod prelude;
 ## Key Sections for Module Docs
 
 1. **Brief description** - One-line summary
-1. **Overview** - What the module provides
-1. **Examples** - How to use it
-1. **Feature flags** - Optional functionality
-1. **See Also** - Related modules
+2. **Overview** - What the module provides
+3. **Examples** - How to use it
+4. **Feature flags** - Optional functionality
+5. **See Also** - Related modules
 
 ## See Also
 

@@ -86,11 +86,11 @@ fn merge_all(chunks: Vec<Vec<Item>>) -> Vec<Item> {
 
 ## Extend Methods
 
-| Method                     | Description                       |
-| -------------------------- | --------------------------------- |
-| `.extend(iter)`            | Add all elements from iterator    |
+| Method | Description |
+| -- | -- |
+| `.extend(iter)` | Add all elements from iterator |
 | `.extend_from_slice(&[T])` | Add from slice (for `Copy` types) |
-| `.append(&mut Vec)`        | Move all from another Vec         |
+| `.append(&mut Vec)` | Move all from another Vec |
 
 ## Pattern: Building Strings
 
@@ -138,11 +138,11 @@ set.extend(items.iter().map(|i| i.id));
 
 ## Performance
 
-| Operation                  | Allocations | Complexity     |
-| -------------------------- | ----------- | -------------- |
-| N × `push()`               | O(log N)    | O(N) amortized |
-| `extend(iter)`             | O(1)\*      | O(N)           |
-| `with_capacity` + `extend` | 1           | O(N)           |
+| Operation | Allocations | Complexity |
+| -- | -- | -- |
+| N × `push()` | O(log N) | O(N) amortized |
+| `extend(iter)` | O(1)\* | O(N) |
+| `with_capacity` + `extend` | 1 | O(N) |
 
 \*When iterator provides accurate `size_hint()`
 

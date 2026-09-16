@@ -74,11 +74,11 @@ fn main() {
 
 ## Runtime Types
 
-| Runtime        | Use Case                            | Configuration               |
-| -------------- | ----------------------------------- | --------------------------- |
-| Multi-thread   | IO-bound, many connections          | `#[tokio::main]` (default)  |
+| Runtime | Use Case | Configuration |
+| -- | -- | -- |
+| Multi-thread | IO-bound, many connections | `#[tokio::main]` (default) |
 | Current-thread | CLI tools, tests, single connection | `flavor = "current_thread"` |
-| Custom         | Fine-tuned performance              | `Builder::new_*()`          |
+| Custom | Fine-tuned performance | `Builder::new_*()` |
 
 ## Worker Thread Tuning
 

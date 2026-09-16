@@ -60,11 +60,11 @@ fn show_version() {
 
 ## Migration from 2021
 
-| 2021                                      | 2024                                          |
-| ----------------------------------------- | --------------------------------------------- |
-| `extern "C" { fn foo(); }`                | `unsafe extern "C" { unsafe fn foo(); }`      |
-| `extern "C" { fn bar(); }` (safe to call) | `unsafe extern "C" { safe fn bar(); }`        |
-| `extern "C" { static X: i32; }`           | `unsafe extern "C" { unsafe static X: i32; }` |
+| 2021 | 2024 |
+| -- | -- |
+| `extern "C" { fn foo(); }` | `unsafe extern "C" { unsafe fn foo(); }` |
+| `extern "C" { fn bar(); }` (safe to call) | `unsafe extern "C" { safe fn bar(); }` |
+| `extern "C" { static X: i32; }` | `unsafe extern "C" { unsafe static X: i32; }` |
 
 Run `cargo fix --edition` to apply the mechanical part of this migration
 automatically. Review each item afterward to decide whether `safe` is warranted.

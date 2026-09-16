@@ -54,17 +54,17 @@ let mut map: HashMap<UserId, User> = HashMap::new();
 
 ## Trait Derivation Guide
 
-| Trait        | Derive When                 | Requirements                               |
-| ------------ | --------------------------- | ------------------------------------------ |
-| `Debug`      | Always for public types     | All fields implement Debug                 |
-| `Clone`      | Type can be duplicated      | All fields implement Clone                 |
-| `Copy`       | Small, simple types         | All fields implement Copy, no Drop         |
-| `PartialEq`  | Comparison makes sense      | All fields implement PartialEq             |
-| `Eq`         | Total equality              | PartialEq, no floating-point fields        |
-| `Hash`       | Used as HashMap/HashSet key | Eq, consistent with PartialEq              |
-| `Default`    | Sensible default exists     | All fields implement Default               |
-| `PartialOrd` | Ordering makes sense        | PartialEq, all fields implement PartialOrd |
-| `Ord`        | Total ordering              | Eq + PartialOrd, no floating-point         |
+| Trait | Derive When | Requirements |
+| -- | -- | -- |
+| `Debug` | Always for public types | All fields implement Debug |
+| `Clone` | Type can be duplicated | All fields implement Clone |
+| `Copy` | Small, simple types | All fields implement Copy, no Drop |
+| `PartialEq` | Comparison makes sense | All fields implement PartialEq |
+| `Eq` | Total equality | PartialEq, no floating-point fields |
+| `Hash` | Used as HashMap/HashSet key | Eq, consistent with PartialEq |
+| `Default` | Sensible default exists | All fields implement Default |
+| `PartialOrd` | Ordering makes sense | PartialEq, all fields implement PartialOrd |
+| `Ord` | Total ordering | Eq + PartialOrd, no floating-point |
 
 ## Common Trait Bundles
 

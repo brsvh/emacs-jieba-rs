@@ -182,7 +182,7 @@
 
         partitions = {
           tools = {
-            extraInputsFlake = ./tools;
+            extraInputsFlake = projectRoot + /tools;
 
             module =
               {
@@ -190,7 +190,7 @@
               }:
               {
                 imports = [
-                  ./tools/flake-module.nix
+                  (projectRoot + /tools/flake-module.nix)
                 ];
               };
           };

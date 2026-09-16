@@ -49,14 +49,14 @@ pub fn parse<T: FromStr>(input: &str) -> Result<T, Error> {
 
 ## Link Syntax
 
-| Syntax           | Links To               | Example                 |
-| ---------------- | ---------------------- | ----------------------- |
-| `[Name]`         | Item in scope          | `[Vec]`, `[Option]`     |
-| `[path::Name]`   | Fully qualified item   | `[std::vec::Vec]`       |
-| `[Self::method]` | Method on current type | `[Self::new]`           |
-| `[Type::method]` | Method on other type   | `[String::new]`         |
-| `[Type::CONST]`  | Associated constant    | `[usize::MAX]`          |
-| `[text](path)`   | Custom text            | `[see here](Self::len)` |
+| Syntax | Links To | Example |
+| -- | -- | -- |
+| `[Name]` | Item in scope | `[Vec]`, `[Option]` |
+| `[path::Name]` | Fully qualified item | `[std::vec::Vec]` |
+| `[Self::method]` | Method on current type | `[Self::new]` |
+| `[Type::method]` | Method on other type | `[String::new]` |
+| `[Type::CONST]` | Associated constant | `[usize::MAX]` |
+| `[text](path)` | Custom text | `[see here](Self::len)` |
 
 ## Common Patterns
 
@@ -99,16 +99,16 @@ When names conflict, use suffixes:
 /// Works with [`Error`](struct@Error) struct or [`Error`](trait@Error) trait.
 ```
 
-| Suffix    | Item Type  |
-| --------- | ---------- |
-| `fn@`     | Function   |
-| `mod@`    | Module     |
-| `struct@` | Struct     |
-| `enum@`   | Enum       |
-| `trait@`  | Trait      |
-| `type@`   | Type alias |
-| `const@`  | Constant   |
-| `macro@`  | Macro      |
+| Suffix | Item Type |
+| -- | -- |
+| `fn@` | Function |
+| `mod@` | Module |
+| `struct@` | Struct |
+| `enum@` | Enum |
+| `trait@` | Trait |
+| `type@` | Type alias |
+| `const@` | Constant |
+| `macro@` | Macro |
 
 ### Reference-Style Links
 

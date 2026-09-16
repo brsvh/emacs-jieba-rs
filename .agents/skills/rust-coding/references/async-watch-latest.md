@@ -178,13 +178,13 @@ let data = rx.borrow_and_update().clone();
 
 ## watch vs broadcast vs mpsc
 
-| Feature          | watch           | broadcast    | mpsc         |
-| ---------------- | --------------- | ------------ | ------------ |
-| Receivers        | Multiple        | Multiple     | Single       |
-| Message delivery | Latest only     | All messages | All messages |
-| Slow receiver    | Skips to latest | Lags/misses  | Backpressure |
-| Clone required   | No              | Yes          | No           |
-| Best for         | Config, status  | Events       | Work queues  |
+| Feature | watch | broadcast | mpsc |
+| -- | -- | -- | -- |
+| Receivers | Multiple | Multiple | Single |
+| Message delivery | Latest only | All messages | All messages |
+| Slow receiver | Skips to latest | Lags/misses | Backpressure |
+| Clone required | No | Yes | No |
+| Best for | Config, status | Events | Work queues |
 
 ## See Also
 

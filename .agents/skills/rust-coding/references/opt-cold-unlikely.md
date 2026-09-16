@@ -70,10 +70,10 @@ fn cold_non_ascii_error() -> Result<Data, ValidationError> {
 
 1. **Code placement**: Cold functions are placed in separate code sections, away
    from hot code
-1. **Branch prediction**: Compiler generates branch hints favoring the non-cold
+2. **Branch prediction**: Compiler generates branch hints favoring the non-cold
    path
-1. **Inlining decisions**: Cold functions are not inlined into hot paths
-1. **Optimization budget**: Compiler spends less effort optimizing cold code
+3. **Inlining decisions**: Cold functions are not inlined into hot paths
+4. **Optimization budget**: Compiler spends less effort optimizing cold code
 
 ## Common Cold Patterns
 

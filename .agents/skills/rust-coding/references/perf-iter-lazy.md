@@ -58,31 +58,31 @@ fn has_positive(data: &[i32]) -> bool {
 
 These methods return iterators (lazy):
 
-| Method         | Description                |
-| -------------- | -------------------------- |
-| `.filter()`    | Keep matching elements     |
-| `.map()`       | Transform elements         |
-| `.take(n)`     | Limit to n elements        |
-| `.skip(n)`     | Skip first n elements      |
-| `.zip()`       | Pair with another iterator |
-| `.chain()`     | Concatenate iterators      |
-| `.flat_map()`  | Map and flatten            |
-| `.enumerate()` | Add index                  |
+| Method | Description |
+| -- | -- |
+| `.filter()` | Keep matching elements |
+| `.map()` | Transform elements |
+| `.take(n)` | Limit to n elements |
+| `.skip(n)` | Skip first n elements |
+| `.zip()` | Pair with another iterator |
+| `.chain()` | Concatenate iterators |
+| `.flat_map()` | Map and flatten |
+| `.enumerate()` | Add index |
 
 ## Consuming Methods
 
 These methods consume the iterator (evaluate immediately):
 
-| Method        | Description            |
-| ------------- | ---------------------- |
-| `.collect()`  | Gather into collection |
-| `.for_each()` | Execute side effect    |
-| `.count()`    | Count elements         |
-| `.sum()`      | Sum elements           |
-| `.fold()`     | Accumulate value       |
-| `.any()`      | Check if any match     |
-| `.all()`      | Check if all match     |
-| `.find()`     | Find first match       |
+| Method | Description |
+| -- | -- |
+| `.collect()` | Gather into collection |
+| `.for_each()` | Execute side effect |
+| `.count()` | Count elements |
+| `.sum()` | Sum elements |
+| `.fold()` | Accumulate value |
+| `.any()` | Check if any match |
+| `.all()` | Check if all match |
+| `.find()` | Find first match |
 
 ## Short-Circuit Benefits
 

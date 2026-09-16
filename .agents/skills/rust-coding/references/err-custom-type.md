@@ -127,12 +127,12 @@ pub enum ApiError {
 
 ## When to Use What
 
-| Error Pattern      | Use Case                              |
-| ------------------ | ------------------------------------- |
-| Custom enum        | Library with specific failure modes   |
-| `thiserror`        | Libraries needing `std::error::Error` |
-| `anyhow::Error`    | Applications, prototypes              |
-| Struct with source | Single error type with wrapped cause  |
+| Error Pattern | Use Case |
+| -- | -- |
+| Custom enum | Library with specific failure modes |
+| `thiserror` | Libraries needing `std::error::Error` |
+| `anyhow::Error` | Applications, prototypes |
+| Struct with source | Single error type with wrapped cause |
 
 ## Struct-Based Errors
 

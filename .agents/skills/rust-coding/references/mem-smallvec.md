@@ -100,13 +100,13 @@ use std::mem::size_of;
 
 ## When to Use SmallVec vs Alternatives
 
-| Situation                      | Use                  |
-| ------------------------------ | -------------------- |
-| Usually small, sometimes large | `SmallVec<[T; N]>`   |
-| Always small, fixed max        | `ArrayVec<T, N>`     |
-| Rarely grows past initial      | `Vec::with_capacity` |
-| No `unsafe` allowed            | `TinyVec`            |
-| Often empty                    | `ThinVec`            |
+| Situation | Use |
+| -- | -- |
+| Usually small, sometimes large | `SmallVec<[T; N]>` |
+| Always small, fixed max | `ArrayVec<T, N>` |
+| Rarely grows past initial | `Vec::with_capacity` |
+| No `unsafe` allowed | `TinyVec` |
+| Often empty | `ThinVec` |
 
 ## ArrayVec Alternative
 

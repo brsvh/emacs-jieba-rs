@@ -10,11 +10,11 @@ semantics. Following this convention makes APIs predictable and enables the
 
 ## The Three Iterator Methods
 
-| Method        | Returns                        | Ownership           |
-| ------------- | ------------------------------ | ------------------- |
-| `iter()`      | `impl Iterator<Item = &T>`     | Borrows collection  |
-| `iter_mut()`  | `impl Iterator<Item = &mut T>` | Mutably borrows     |
-| `into_iter()` | `impl Iterator<Item = T>`      | Consumes collection |
+| Method | Returns | Ownership |
+| -- | -- | -- |
+| `iter()` | `impl Iterator<Item = &T>` | Borrows collection |
+| `iter_mut()` | `impl Iterator<Item = &mut T>` | Mutably borrows |
+| `into_iter()` | `impl Iterator<Item = T>` | Consumes collection |
 
 ## Implementation
 

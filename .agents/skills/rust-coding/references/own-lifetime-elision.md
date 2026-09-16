@@ -57,7 +57,7 @@ impl Display for Wrapper<'_> {
    fn foo<'a, 'b>(x: &'a str, y: &'b str)
    ```
 
-1. **One input reference → output gets same lifetime:**
+2. **One input reference → output gets same lifetime:**
 
    ```rust
    fn foo(x: &str) -> &str
@@ -65,7 +65,7 @@ impl Display for Wrapper<'_> {
    fn foo<'a>(x: &'a str) -> &'a str
    ```
 
-1. **Method with `&self`/`&mut self` → output gets self's lifetime:**
+3. **Method with `&self`/`&mut self` → output gets self's lifetime:**
 
    ```rust
    fn foo(&self, x: &str) -> &str

@@ -115,13 +115,13 @@ mod tests {
 
 ## Comparison
 
-| Visibility     | Scope          | Use Case                  |
-| -------------- | -------------- | ------------------------- |
-| `pub`          | Everywhere     | Public API                |
-| `pub(crate)`   | Crate-wide     | Internal shared utilities |
-| `pub(super)`   | Parent module  | Submodule helpers         |
-| `pub(in path)` | Specific path  | Precise control           |
-| (private)      | Current module | Implementation details    |
+| Visibility | Scope | Use Case |
+| -- | -- | -- |
+| `pub` | Everywhere | Public API |
+| `pub(crate)` | Crate-wide | Internal shared utilities |
+| `pub(super)` | Parent module | Submodule helpers |
+| `pub(in path)` | Specific path | Precise control |
+| (private) | Current module | Implementation details |
 
 ## When to Use pub(super)
 

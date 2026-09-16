@@ -51,12 +51,12 @@ fn build_tree() -> Rc<Node> {
 
 ## Decision Guide
 
-| Scenario                                | Use                                |
-| --------------------------------------- | ---------------------------------- |
-| Single-threaded, shared ownership       | `Rc<T>`                            |
-| Multi-threaded, shared ownership        | `Arc<T>`                           |
+| Scenario | Use |
+| -- | -- |
+| Single-threaded, shared ownership | `Rc<T>` |
+| Multi-threaded, shared ownership | `Arc<T>` |
 | Single owner, might need multiple later | Start with `Rc`, upgrade if needed |
-| Library code, unknown threading model   | `Arc<T>` (safer default)           |
+| Library code, unknown threading model | `Arc<T>` (safer default) |
 
 ## Breaking Cycles with Weak
 

@@ -58,8 +58,8 @@ let d2 = distance(origin, target); // Still works!
 A type can implement `Copy` only if:
 
 1. All fields implement `Copy`
-1. No custom `Drop` implementation
-1. No heap-allocated data (`String`, `Vec`, `Box`, etc.)
+2. No custom `Drop` implementation
+3. No heap-allocated data (`String`, `Vec`, `Box`, etc.)
 
 ```rust
 // ✅ Can be Copy
@@ -89,11 +89,11 @@ impl Drop for FileHandle {
 
 ## Size Guidelines
 
-| Size        | Recommendation                         |
-| ----------- | -------------------------------------- |
-| ≤ 16 bytes  | Implement `Copy`                       |
+| Size | Recommendation |
+| -- | -- |
+| ≤ 16 bytes | Implement `Copy` |
 | 17-64 bytes | Consider `Copy`, benchmark if critical |
-| > 64 bytes  | Probably don't, prefer references      |
+| > 64 bytes | Probably don't, prefer references |
 
 ```rust
 use std::mem::size_of;

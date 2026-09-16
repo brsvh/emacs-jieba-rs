@@ -51,10 +51,10 @@ static INIT: extern "C" fn() = init;
 
 ## Migration
 
-| Rust 2021                  | Rust 2024                          |
-| -------------------------- | ---------------------------------- |
-| `#[no_mangle]`             | `#[unsafe(no_mangle)]`             |
-| `#[export_name = "sym"]`   | `#[unsafe(export_name = "sym")]`   |
+| Rust 2021 | Rust 2024 |
+| -- | -- |
+| `#[no_mangle]` | `#[unsafe(no_mangle)]` |
+| `#[export_name = "sym"]` | `#[unsafe(export_name = "sym")]` |
 | `#[link_section = ".sec"]` | `#[unsafe(link_section = ".sec")]` |
 
 Run `cargo fix --edition` when migrating to the 2024 edition — it rewrites bare

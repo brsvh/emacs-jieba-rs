@@ -120,12 +120,12 @@ ignored_unit_patterns = "warn"
 
 ## Decision Guide
 
-| Situation                      | Action                   |
-| ------------------------------ | ------------------------ |
-| Critical operation             | `?` or handle explicitly |
-| Non-critical, debugging needed | Log the error            |
-| Truly ignorable (rare)         | `let _ =` with comment   |
-| Batch operation                | Collect errors, report   |
+| Situation | Action |
+| -- | -- |
+| Critical operation | `?` or handle explicitly |
+| Non-critical, debugging needed | Log the error |
+| Truly ignorable (rare) | `let _ =` with comment |
+| Batch operation | Collect errors, report |
 
 ## See Also
 

@@ -12,8 +12,8 @@ optimizing them aggressively while deprioritizing cold paths. This can yield
 ## The PGO Process
 
 1. **Instrument**: Build with profiling instrumentation
-1. **Profile**: Run representative workloads
-1. **Optimize**: Rebuild using collected profile data
+2. **Profile**: Run representative workloads
+3. **Optimize**: Rebuild using collected profile data
 
 ## Step-by-Step
 
@@ -156,12 +156,12 @@ jobs:
 
 ## When to Use PGO
 
-| Use PGO                   | Skip PGO                  |
-| ------------------------- | ------------------------- |
-| Production deployments    | Development builds        |
+| Use PGO | Skip PGO |
+| -- | -- |
+| Production deployments | Development builds |
 | Performance-critical apps | Libraries (users can PGO) |
-| Stable workload patterns  | Highly variable workloads |
-| Sufficient profiling data | Quick iteration cycles    |
+| Stable workload patterns | Highly variable workloads |
+| Sufficient profiling data | Quick iteration cycles |
 
 ## See Also
 

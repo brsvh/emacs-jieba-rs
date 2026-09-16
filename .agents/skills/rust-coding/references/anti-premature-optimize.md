@@ -86,13 +86,13 @@ cargo bench
 
 ## Optimization Principles
 
-| Do                  | Don't                        |
-| ------------------- | ---------------------------- |
-| Profile first       | Guess at bottlenecks         |
-| Optimize hotspots   | Optimize everything          |
-| Measure improvement | Assume it's faster           |
-| Keep it simple      | Add complexity speculatively |
-| Trust the compiler  | Outsmart the compiler        |
+| Do | Don't |
+| -- | -- |
+| Profile first | Guess at bottlenecks |
+| Optimize hotspots | Optimize everything |
+| Measure improvement | Assume it's faster |
+| Keep it simple | Add complexity speculatively |
+| Trust the compiler | Outsmart the compiler |
 
 ## When to Optimize
 
@@ -113,13 +113,13 @@ struct FormatterPool {
 
 ## Common Premature Optimizations
 
-| Premature                         | Reality                       |
-| --------------------------------- | ----------------------------- |
-| `#[inline(always)]` everywhere    | Compiler usually knows better |
-| `unsafe` for bounds check removal | Iterator does this safely     |
-| Custom allocator                  | Default is usually fine       |
-| Object pooling                    | Allocator is fast enough      |
-| Manual SIMD                       | Auto-vectorization works      |
+| Premature | Reality |
+| -- | -- |
+| `#[inline(always)]` everywhere | Compiler usually knows better |
+| `unsafe` for bounds check removal | Iterator does this safely |
+| Custom allocator | Default is usually fine |
+| Object pooling | Allocator is fast enough |
+| Manual SIMD | Auto-vectorization works |
 
 ## Profile Tools
 

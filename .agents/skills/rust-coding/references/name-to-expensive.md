@@ -63,11 +63,11 @@ let path: &Path = Path::new("foo");       // Just reference
 
 ## Conversion Method Prefixes
 
-| Prefix  | Cost               | Ownership       | Example                      |
-| ------- | ------------------ | --------------- | ---------------------------- |
-| `as_`   | Free (O(1))        | Borrows `&T`    | `as_str()`, `as_bytes()`     |
-| `to_`   | Allocates/Computes | Creates new     | `to_string()`, `to_vec()`    |
-| `into_` | Usually free       | Takes ownership | `into_inner()`, `into_vec()` |
+| Prefix | Cost | Ownership | Example |
+| -- | -- | -- | -- |
+| `as_` | Free (O(1)) | Borrows `&T` | `as_str()`, `as_bytes()` |
+| `to_` | Allocates/Computes | Creates new | `to_string()`, `to_vec()` |
+| `into_` | Usually free | Takes ownership | `into_inner()`, `into_vec()` |
 
 ## Custom Types
 

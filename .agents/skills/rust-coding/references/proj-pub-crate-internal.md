@@ -65,13 +65,13 @@ impl Widget {
 
 ## Visibility Levels
 
-| Visibility     | Accessible From      |
-| -------------- | -------------------- |
-| `pub`          | Everywhere           |
-| `pub(crate)`   | Current crate only   |
-| `pub(super)`   | Parent module only   |
+| Visibility | Accessible From |
+| -- | -- |
+| `pub` | Everywhere |
+| `pub(crate)` | Current crate only |
+| `pub(super)` | Parent module only |
 | `pub(in path)` | Specific module path |
-| (private)      | Current module only  |
+| (private) | Current module only |
 
 ## Pattern: Internal Module
 
@@ -128,11 +128,11 @@ pub use service::UserService;  // Only export the public API
 
 ## Benefits
 
-| Approach               | API Stability           | Flexibility              |
-| ---------------------- | ----------------------- | ------------------------ |
-| All `pub`              | Any change breaks users | None                     |
-| `pub(crate)` internals | Only `pub` items matter | Can refactor freely      |
-| Private                | Maximum encapsulation   | Limits crate flexibility |
+| Approach | API Stability | Flexibility |
+| -- | -- | -- |
+| All `pub` | Any change breaks users | None |
+| `pub(crate)` internals | Only `pub` items matter | Can refactor freely |
+| Private | Maximum encapsulation | Limits crate flexibility |
 
 ## See Also
 

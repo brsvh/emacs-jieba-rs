@@ -67,13 +67,13 @@ struct MemoryStorage { data: HashMap<String, Vec<u8>> }
 
 ## Signs of Over-Abstraction
 
-| Sign                  | Symptom                               |
-| --------------------- | ------------------------------------- |
-| Single implementation | Generic trait with only one impl      |
-| Type parameter soup   | `T, U, V, W` everywhere               |
-| Marker traits         | Traits with no methods                |
-| Deep trait bounds     | `where T: A + B + C + D + E`          |
-| Phantom generics      | Type parameters not used meaningfully |
+| Sign | Symptom |
+| -- | -- |
+| Single implementation | Generic trait with only one impl |
+| Type parameter soup | `T, U, V, W` everywhere |
+| Marker traits | Traits with no methods |
+| Deep trait bounds | `where T: A + B + C + D + E` |
+| Phantom generics | Type parameters not used meaningfully |
 
 ## When to Generalize
 

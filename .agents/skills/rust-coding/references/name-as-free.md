@@ -10,11 +10,11 @@ used throughout the standard library.
 
 ## The Convention
 
-| Prefix  | Cost      | Ownership  | Example                |
-| ------- | --------- | ---------- | ---------------------- |
-| `as_`   | Free      | `&T -> &U` | `str::as_bytes()`      |
-| `to_`   | Expensive | `&T -> U`  | `str::to_lowercase()`  |
-| `into_` | Variable  | `T -> U`   | `String::into_bytes()` |
+| Prefix | Cost | Ownership | Example |
+| -- | -- | -- | -- |
+| `as_` | Free | `&T -> &U` | `str::as_bytes()` |
+| `to_` | Expensive | `&T -> U` | `str::to_lowercase()` |
+| `into_` | Variable | `T -> U` | `String::into_bytes()` |
 
 ## Examples
 

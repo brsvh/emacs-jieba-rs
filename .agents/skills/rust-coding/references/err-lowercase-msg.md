@@ -71,12 +71,12 @@ The standard library follows this convention:
 
 ## Formatting Guidelines
 
-| Do                                  | Don't                                       |
-| ----------------------------------- | ------------------------------------------- |
-| `"failed to parse config"`          | `"Failed to parse config."`                 |
-| `"invalid input: expected number"`  | `"Invalid input - expected a number!"`      |
+| Do | Don't |
+| -- | -- |
+| `"failed to parse config"` | `"Failed to parse config."` |
+| `"invalid input: expected number"` | `"Invalid input - expected a number!"` |
 | `"connection timed out after {0}s"` | `"Connection Timed Out After {0} seconds."` |
-| `"key '{0}' not found"`             | `"Key Not Found: {0}"`                      |
+| `"key '{0}' not found"` | `"Key Not Found: {0}"` |
 
 ## Context Addition Pattern
 

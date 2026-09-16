@@ -82,11 +82,11 @@ impl<'a, T> IntoIterator for &'a mut Collection<T> {
 
 ## Iterator Convention Summary
 
-| Method        | Receiver    | Yields   | Use Case              |
-| ------------- | ----------- | -------- | --------------------- |
-| `iter()`      | `&self`     | `&T`     | Read-only iteration   |
-| `iter_mut()`  | `&mut self` | `&mut T` | In-place modification |
-| `into_iter()` | `self`      | `T`      | Consuming iteration   |
+| Method | Receiver | Yields | Use Case |
+| -- | -- | -- | -- |
+| `iter()` | `&self` | `&T` | Read-only iteration |
+| `iter_mut()` | `&mut self` | `&mut T` | In-place modification |
+| `into_iter()` | `self` | `T` | Consuming iteration |
 
 ## For Loop Integration
 

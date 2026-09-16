@@ -44,13 +44,13 @@ use my_crate::prelude::*;
 
 ## What to Include
 
-| Include                      | Don't Include                 |
-| ---------------------------- | ----------------------------- |
-| Core types users always need | Rarely-used types             |
-| Common traits                | Implementation details        |
-| Error types                  | Internal helpers              |
-| Extension traits             | Feature-gated items (usually) |
-| Type aliases                 | Everything                    |
+| Include | Don't Include |
+| -- | -- |
+| Core types users always need | Rarely-used types |
+| Common traits | Implementation details |
+| Error types | Internal helpers |
+| Extension traits | Feature-gated items (usually) |
+| Type aliases | Everything |
 
 ## Example: Web Framework Prelude
 
@@ -124,9 +124,9 @@ pub mod prelude {
 ## Guidelines
 
 1. **Be conservative** - Only include truly common items
-1. **Avoid conflicts** - Don't include names that might clash (e.g., `Error`)
-1. **Document it** - List what's included in module docs
-1. **Stay stable** - Removing items is breaking change
+2. **Avoid conflicts** - Don't include names that might clash (e.g., `Error`)
+3. **Document it** - List what's included in module docs
+4. **Stay stable** - Removing items is breaking change
 
 ## Documenting the Prelude
 

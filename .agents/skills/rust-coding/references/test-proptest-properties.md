@@ -104,14 +104,14 @@ struct Point {
 
 ## Properties to Test
 
-| Property      | Example                          |
-| ------------- | -------------------------------- |
-| Roundtrip     | `decode(encode(x)) == x`         |
-| Idempotence   | `f(f(x)) == f(x)`                |
-| Commutativity | `f(a, b) == f(b, a)`             |
+| Property | Example |
+| -- | -- |
+| Roundtrip | `decode(encode(x)) == x` |
+| Idempotence | `f(f(x)) == f(x)` |
+| Commutativity | `f(a, b) == f(b, a)` |
 | Associativity | `f(f(a, b), c) == f(a, f(b, c))` |
-| Identity      | `f(x, identity) == x`            |
-| Invariants    | `len(push(v, x)) == len(v) + 1`  |
+| Identity | `f(x, identity) == x` |
+| Invariants | `len(push(v, x)) == len(v) + 1` |
 
 ## Example: Parser Roundtrip
 

@@ -2,7 +2,6 @@
 
 # devshells
 /.editorconfig
-/opencode.json
 /prek.toml
 /treefmt.toml
 

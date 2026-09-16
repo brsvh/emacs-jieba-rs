@@ -103,13 +103,13 @@ process(&some_string);
 
 ## Similar Anti-patterns
 
-| Anti-pattern | Better   |
-| ------------ | -------- |
-| `&String`    | `&str`   |
-| `&Vec<T>`    | `&[T]`   |
-| `&Box<T>`    | `&T`     |
-| `&PathBuf`   | `&Path`  |
-| `&OsString`  | `&OsStr` |
+| Anti-pattern | Better |
+| -- | -- |
+| `&String` | `&str` |
+| `&Vec<T>` | `&[T]` |
+| `&Box<T>` | `&T` |
+| `&PathBuf` | `&Path` |
+| `&OsString` | `&OsStr` |
 
 ## Clippy Detection
 

@@ -141,14 +141,14 @@ workspace = true
 
 ## What to Document
 
-| Item          | Doc Focus                    |
-| ------------- | ---------------------------- |
-| Structs       | Purpose, usage example       |
-| Struct fields | What it represents           |
-| Enums         | When to use each variant     |
-| Functions     | What it does, params, return |
-| Traits        | Contract and expectations    |
-| Modules       | What the module provides     |
+| Item | Doc Focus |
+| -- | -- |
+| Structs | Purpose, usage example |
+| Struct fields | What it represents |
+| Enums | When to use each variant |
+| Functions | What it does, params, return |
+| Traits | Contract and expectations |
+| Modules | What the module provides |
 
 ## See Also
 

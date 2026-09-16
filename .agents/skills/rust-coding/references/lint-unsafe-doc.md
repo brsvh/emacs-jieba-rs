@@ -81,8 +81,8 @@ unsafe {
 The comment should explain:
 
 1. **What invariants are upheld** - preconditions that make this safe
-1. **Why the invariants hold** - how you know they're satisfied
-1. **What could go wrong** - if invariants are violated
+2. **Why the invariants hold** - how you know they're satisfied
+3. **What could go wrong** - if invariants are violated
 
 ## Examples by Category
 

@@ -83,17 +83,17 @@ pub enum Status {
 
 ## What to Document
 
-| Item Type     | Required Content                       |
-| ------------- | -------------------------------------- |
-| Structs       | Purpose, usage example                 |
-| Struct fields | What the field represents              |
-| Enums         | When to use each variant               |
-| Enum variants | What state it represents               |
-| Functions     | What it does, parameters, return value |
-| Traits        | Contract and expected behavior         |
-| Trait methods | Default implementation behavior        |
-| Type aliases  | Why the alias exists                   |
-| Constants     | What the value represents              |
+| Item Type | Required Content |
+| -- | -- |
+| Structs | Purpose, usage example |
+| Struct fields | What the field represents |
+| Enums | When to use each variant |
+| Enum variants | What state it represents |
+| Functions | What it does, parameters, return value |
+| Traits | Contract and expected behavior |
+| Trait methods | Default implementation behavior |
+| Type aliases | Why the alias exists |
+| Constants | What the value represents |
 
 ## Enforcement
 

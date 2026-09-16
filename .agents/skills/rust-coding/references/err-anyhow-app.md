@@ -166,14 +166,14 @@ fn handle_error(err: anyhow::Error) {
 
 ## When to Use Which
 
-| Situation                    | Use         |
-| ---------------------------- | ----------- |
-| Library public API           | `thiserror` |
-| Application code             | `anyhow`    |
-| CLI tools                    | `anyhow`    |
-| Internal library code        | Either      |
+| Situation | Use |
+| -- | -- |
+| Library public API | `thiserror` |
+| Application code | `anyhow` |
+| CLI tools | `anyhow` |
+| Internal library code | Either |
 | Need to match error variants | `thiserror` |
-| Just need to report errors   | `anyhow`    |
+| Just need to report errors | `anyhow` |
 
 ## See Also
 

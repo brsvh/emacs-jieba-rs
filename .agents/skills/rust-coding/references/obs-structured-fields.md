@@ -59,12 +59,12 @@ fn handle_request(req: &Request, status: u16) {
 
 ## Field Sigil Reference
 
-| Syntax              | Trait used              | When to use                                    |
-| ------------------- | ----------------------- | ---------------------------------------------- |
-| `field = value`     | native (primitive)      | integers, bools, floats                        |
-| `field = %expr`     | `Display`               | strings, IDs, URLs, types with clean `Display` |
-| `field = ?expr`     | `Debug`                 | structs, enums, vecs — for diagnostics         |
-| `field` (shorthand) | same as `field = field` | when name matches variable                     |
+| Syntax | Trait used | When to use |
+| -- | -- | -- |
+| `field = value` | native (primitive) | integers, bools, floats |
+| `field = %expr` | `Display` | strings, IDs, URLs, types with clean `Display` |
+| `field = ?expr` | `Debug` | structs, enums, vecs — for diagnostics |
+| `field` (shorthand) | same as `field = field` | when name matches variable |
 
 ## Key Points
 

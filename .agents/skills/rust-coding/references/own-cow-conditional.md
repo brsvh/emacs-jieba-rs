@@ -123,13 +123,13 @@ fn collect_errors<'a>(
 
 ## When to Use Cow
 
-| Situation                             | Use Cow?                |
-| ------------------------------------- | ----------------------- |
-| Usually borrow, sometimes own         | Yes                     |
-| Always need owned data                | No, just use owned type |
-| Always borrow                         | No, just use reference  |
-| Hot path, avoiding all allocations    | Yes                     |
-| Returning static strings or formatted | Yes                     |
+| Situation | Use Cow? |
+| -- | -- |
+| Usually borrow, sometimes own | Yes |
+| Always need owned data | No, just use owned type |
+| Always borrow | No, just use reference |
+| Hot path, avoiding all allocations | Yes |
+| Returning static strings or formatted | Yes |
 
 ## See Also
 

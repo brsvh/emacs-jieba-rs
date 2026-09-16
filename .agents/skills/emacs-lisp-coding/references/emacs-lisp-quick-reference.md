@@ -54,17 +54,17 @@ idioms based on community best practices.
 
 ## Naming Conventions
 
-| Type                  | Convention                  | Example                   |
-| --------------------- | --------------------------- | ------------------------- |
-| Function              | `package-function-name`     | `projectile-find-file`    |
-| Variable              | `package-variable-name`     | `projectile-project-root` |
-| Constant              | `package-constant-name`     | `package-version`         |
-| Private function      | `package--private-function` | `projectile--get-root`    |
-| Unused variable       | `_variable`                 | `(lambda (x _y) x)`       |
-| Single-word predicate | `wordp`                     | `integerp`, `stringp`     |
-| Multi-word predicate  | `phrase-p`                  | `buffer-live-p`           |
-| Face                  | `package-face-name`         | `font-lock-keyword-face`  |
-| Group                 | `package`                   | `projectile`              |
+| Type | Convention | Example |
+| -- | -- | -- |
+| Function | `package-function-name` | `projectile-find-file` |
+| Variable | `package-variable-name` | `projectile-project-root` |
+| Constant | `package-constant-name` | `package-version` |
+| Private function | `package--private-function` | `projectile--get-root` |
+| Unused variable | `_variable` | `(lambda (x _y) x)` |
+| Single-word predicate | `wordp` | `integerp`, `stringp` |
+| Multi-word predicate | `phrase-p` | `buffer-live-p` |
+| Face | `package-face-name` | `font-lock-keyword-face` |
+| Group | `package` | `projectile` |
 
 ## Indentation Rules
 
@@ -533,21 +533,21 @@ Returns the processed result."
 
 ## Interactive Codes Quick Reference
 
-| Code | Meaning                       |
-| ---- | ----------------------------- |
-| `p`  | Prefix argument as number     |
-| `P`  | Raw prefix argument           |
-| `r`  | Region (start and end)        |
-| `s`  | String (read from minibuffer) |
-| `f`  | Existing file name            |
-| `F`  | File name (may not exist)     |
-| `d`  | Directory name                |
-| `b`  | Buffer name                   |
-| `B`  | Buffer name (may not exist)   |
-| `n`  | Number                        |
-| `c`  | Character                     |
-| `k`  | Key sequence                  |
-| `x`  | Lisp expression               |
+| Code | Meaning |
+| -- | -- |
+| `p` | Prefix argument as number |
+| `P` | Raw prefix argument |
+| `r` | Region (start and end) |
+| `s` | String (read from minibuffer) |
+| `f` | Existing file name |
+| `F` | File name (may not exist) |
+| `d` | Directory name |
+| `b` | Buffer name |
+| `B` | Buffer name (may not exist) |
+| `n` | Number |
+| `c` | Character |
+| `k` | Key sequence |
+| `x` | Lisp expression |
 
 ## Best Practices Checklist
 

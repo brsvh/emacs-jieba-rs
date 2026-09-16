@@ -142,13 +142,13 @@ impl ConfigBuilder {
 
 ## Decision Guide
 
-| Pattern             | Naming                               |
-| ------------------- | ------------------------------------ |
-| Simple field access | `name()`, `value()`, `len()`         |
-| Boolean property    | `is_valid()`, `has_items()`          |
-| Fallible access     | `get()`, `get_mut()`                 |
-| Setter              | `set_name()`, `set_value()`          |
-| Builder             | `name()`, `value()` (consuming self) |
+| Pattern | Naming |
+| -- | -- |
+| Simple field access | `name()`, `value()`, `len()` |
+| Boolean property | `is_valid()`, `has_items()` |
+| Fallible access | `get()`, `get_mut()` |
+| Setter | `set_name()`, `set_value()` |
+| Builder | `name()`, `value()` (consuming self) |
 
 ## See Also
 

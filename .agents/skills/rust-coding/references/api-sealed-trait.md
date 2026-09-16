@@ -157,12 +157,12 @@ pub trait Plugin: private::SealedCore {
 
 ## When to Seal
 
-| Seal When                          | Don't Seal When                    |
-| ---------------------------------- | ---------------------------------- |
-| API stability is critical          | You want extension points          |
-| Implementation correctness is hard | Users need custom implementations  |
-| You'll add methods later           | Trait is simple and stable         |
-| Safety invariants required         | Standard patterns (Iterator, etc.) |
+| Seal When | Don't Seal When |
+| -- | -- |
+| API stability is critical | You want extension points |
+| Implementation correctness is hard | Users need custom implementations |
+| You'll add methods later | Trait is simple and stable |
+| Safety invariants required | Standard patterns (Iterator, etc.) |
 
 ## See Also
 

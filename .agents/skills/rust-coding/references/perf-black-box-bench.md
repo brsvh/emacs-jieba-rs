@@ -61,12 +61,12 @@ fn benchmark_simpler(c: &mut Criterion) {
 
 ## What black_box Does
 
-| Without black_box            | With black_box           |
-| ---------------------------- | ------------------------ |
+| Without black_box | With black_box |
+| -- | -- |
 | Input may be constant-folded | Input treated as unknown |
-| Result may be eliminated     | Result must be computed  |
-| Loops may be optimized away  | Each iteration runs      |
-| Functions may be inlined     | Call semantics preserved |
+| Result may be eliminated | Result must be computed |
+| Loops may be optimized away | Each iteration runs |
+| Functions may be inlined | Call semantics preserved |
 
 ## Standard Library Usage
 

@@ -72,8 +72,8 @@ where
 Messages should:
 
 1. Start with "BUG:" or similar to indicate it's an invariant
-1. Explain WHY the invariant should hold
-1. Help developers fix the issue
+2. Explain WHY the invariant should hold
+3. Help developers fix the issue
 
 ```rust
 // ❌ Bad messages

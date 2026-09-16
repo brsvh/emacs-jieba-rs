@@ -183,13 +183,13 @@ while let Some(result) = set.join_next().await {
 
 ## JoinSet vs join_all
 
-| Feature               | JoinSet | join_all         |
-| --------------------- | ------- | ---------------- |
-| Add tasks dynamically | Yes     | No               |
-| Results as-completed  | Yes     | No (all at once) |
-| Abort all on drop     | Yes     | No               |
-| Cancel individual     | Yes     | No               |
-| Memory efficient      | Yes     | Pre-allocates    |
+| Feature | JoinSet | join_all |
+| -- | -- | -- |
+| Add tasks dynamically | Yes | No |
+| Results as-completed | Yes | No (all at once) |
+| Abort all on drop | Yes | No |
+| Cancel individual | Yes | No |
+| Memory efficient | Yes | Pre-allocates |
 
 ## See Also
 

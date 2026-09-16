@@ -124,13 +124,13 @@ for item in all.iter().flat_map(|slice| slice.iter()) {
 
 ## Performance Impact
 
-| Pattern          | Per-Item Overhead           |
-| ---------------- | --------------------------- |
-| Single iterator  | None                        |
-| `chain(a, b)`    | 1 branch per item           |
-| `chain(a, b, c)` | 2 branches per item         |
-| Nested chains    | Compounds                   |
-| Separate loops   | None (but code duplication) |
+| Pattern | Per-Item Overhead |
+| -- | -- |
+| Single iterator | None |
+| `chain(a, b)` | 1 branch per item |
+| `chain(a, b, c)` | 2 branches per item |
+| Nested chains | Compounds |
+| Separate loops | None (but code duplication) |
 
 ## See Also
 

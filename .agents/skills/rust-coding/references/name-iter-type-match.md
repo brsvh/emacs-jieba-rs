@@ -96,17 +96,17 @@ mod my_collection {
 
 ## Naming Convention
 
-| Method         | Iterator Type |
-| -------------- | ------------- |
-| `iter()`       | `Iter`        |
-| `iter_mut()`   | `IterMut`     |
-| `into_iter()`  | `IntoIter`    |
-| `keys()`       | `Keys`        |
-| `values()`     | `Values`      |
-| `values_mut()` | `ValuesMut`   |
-| `drain()`      | `Drain`       |
-| `chunks()`     | `Chunks`      |
-| `windows()`    | `Windows`     |
+| Method | Iterator Type |
+| -- | -- |
+| `iter()` | `Iter` |
+| `iter_mut()` | `IterMut` |
+| `into_iter()` | `IntoIter` |
+| `keys()` | `Keys` |
+| `values()` | `Values` |
+| `values_mut()` | `ValuesMut` |
+| `drain()` | `Drain` |
+| `chunks()` | `Chunks` |
+| `windows()` | `Windows` |
 
 ## Custom Iterator Methods
 

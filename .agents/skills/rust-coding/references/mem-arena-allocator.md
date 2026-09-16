@@ -142,14 +142,14 @@ fn process<'a>(arena: &'a Bump, input: &str) -> Vec<'a, String<'a>> {
 
 ## When to Use Arenas
 
-| Situation           | Use Arena?       |
-| ------------------- | ---------------- |
-| Parsing (AST nodes) | Yes              |
-| Request handling    | Yes              |
-| Batch processing    | Yes              |
-| Long-lived data     | No               |
+| Situation | Use Arena? |
+| -- | -- |
+| Parsing (AST nodes) | Yes |
+| Request handling | Yes |
+| Batch processing | Yes |
+| Long-lived data | No |
 | Data escaping scope | No (or copy out) |
-| Simple programs     | Overkill         |
+| Simple programs | Overkill |
 
 ## Performance Impact
 

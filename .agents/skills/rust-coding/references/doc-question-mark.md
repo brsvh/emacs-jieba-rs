@@ -126,11 +126,11 @@ But still prefer `?` when demonstrating error handling patterns.
 
 ## Comparison
 
-| Pattern     | Behavior on Error            | Teaches         |
-| ----------- | ---------------------------- | --------------- |
-| `.unwrap()` | Panics with generic message  | Bad habits      |
-| `.expect()` | Panics with custom message   | Slightly better |
-| `?`         | Propagates error, test fails | Best practices  |
+| Pattern | Behavior on Error | Teaches |
+| -- | -- | -- |
+| `.unwrap()` | Panics with generic message | Bad habits |
+| `.expect()` | Panics with custom message | Slightly better |
+| `?` | Propagates error, test fails | Best practices |
 
 ## See Also
 

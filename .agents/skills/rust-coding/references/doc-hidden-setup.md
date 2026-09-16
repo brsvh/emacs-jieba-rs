@@ -76,13 +76,13 @@ assert!(results.all_succeeded());
 
 ## What to Hide
 
-| Hide                       | Show                   |
-| -------------------------- | ---------------------- |
-| `use` statements           | Core API usage         |
-| Type definitions           | Method calls           |
-| Mock/test data setup       | Key parameters         |
-| Error handling boilerplate | Return value handling  |
-| `Ok(())` return            | Assertions (sometimes) |
+| Hide | Show |
+| -- | -- |
+| `use` statements | Core API usage |
+| Type definitions | Method calls |
+| Mock/test data setup | Key parameters |
+| Error handling boilerplate | Return value handling |
+| `Ok(())` return | Assertions (sometimes) |
 
 ## Pattern: Hiding Multi-Line Setup
 

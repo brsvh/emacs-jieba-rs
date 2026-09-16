@@ -55,14 +55,14 @@ if user.is_active() && user.has_permission(Permission::Write) {
 
 ## Common Prefixes
 
-| Prefix    | Use For                | Example                                          |
-| --------- | ---------------------- | ------------------------------------------------ |
-| `is_`     | State/property check   | `is_empty()`, `is_valid()`, `is_some()`          |
-| `has_`    | Possession/containment | `has_key()`, `has_children()`, `has_remaining()` |
-| `can_`    | Capability/permission  | `can_read()`, `can_write()`, `can_execute()`     |
-| `should_` | Recommendation/policy  | `should_retry()`, `should_cache()`               |
-| `needs_`  | Requirement            | `needs_update()`, `needs_auth()`                 |
-| `will_`   | Future action          | `will_block()`, `will_overflow()`                |
+| Prefix | Use For | Example |
+| -- | -- | -- |
+| `is_` | State/property check | `is_empty()`, `is_valid()`, `is_some()` |
+| `has_` | Possession/containment | `has_key()`, `has_children()`, `has_remaining()` |
+| `can_` | Capability/permission | `can_read()`, `can_write()`, `can_execute()` |
+| `should_` | Recommendation/policy | `should_retry()`, `should_cache()` |
+| `needs_` | Requirement | `needs_update()`, `needs_auth()` |
+| `will_` | Future action | `will_block()`, `will_overflow()` |
 
 ## Standard Library Examples
 

@@ -131,13 +131,13 @@ impl File {
 
 ## When to Use
 
-| Scenario             | Use `#[repr(transparent)]`? |
-| -------------------- | --------------------------- |
-| FFI newtype wrappers | Yes                         |
-| Type-safe handles    | Yes                         |
-| NonZero optimization | Yes                         |
-| Pure Rust newtypes   | Optional (doesn't hurt)     |
-| Multi-field structs  | N/A (only for single-field) |
+| Scenario | Use `#[repr(transparent)]`? |
+| -- | -- |
+| FFI newtype wrappers | Yes |
+| Type-safe handles | Yes |
+| NonZero optimization | Yes |
+| Pure Rust newtypes | Optional (doesn't hurt) |
+| Multi-field structs | N/A (only for single-field) |
 
 ## See Also
 

@@ -411,7 +411,6 @@
                 (
                   with pkgs;
                   [
-                    emacs30
                     emacs31
                   ]
                 );

@@ -101,17 +101,13 @@ jobs:
 
           case "$CHECK" in
             ERT)
-              run_check nix run .#emacs30-run-jieba-rs-tests
               run_check nix run .#emacs31-run-jieba-rs-tests
               ;;
             byte-compilation)
               run_check nix run \
-                .#emacs30-byte-compile-jieba-rs
-              run_check nix run \
                 .#emacs31-byte-compile-jieba-rs
               ;;
             checkdoc)
-              run_check nix run .#emacs30-checkdoc-jieba-rs
               run_check nix run .#emacs31-checkdoc-jieba-rs
               ;;
             *)

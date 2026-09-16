@@ -10,28 +10,19 @@ Free Documentation License".
 
 # emacs-jieba-rs
 
-`emacs-jieba-rs` 为 GNU Emacs 提供由 Rust 动态模块驱动的中文分词功能。其中的 Emacs 软件包 `jieba-rs`
-封装了上游同名 Rust 库
-[`jieba-rs`](https://github.com/messense/jieba-rs)，支持精确模式、全模式和搜索引擎模式，并提供词性（POS）标注、TF-IDF
-与 TextRank 关键词提取、用户词典以及可视词边界。
+为 GNU Emacs 提供中文分词、词句移动、词性标注、关键词提取和可视词边界。Emacs 包名为 `jieba-rs`，通过 Rust 动态模块调用上游
+[`jieba-rs`](https://github.com/messense/jieba-rs)。
 
-启用 `jieba-rs-mode` 后，软件包会重映射 GNU Emacs 标准的词句移动命令，使 `M-f`、`M-b`、`M-e` 和 `M-a`
-能够按中文词句移动。词边界和词性标签使用覆盖层显示，不会改写缓冲区文本。
-
-## 快速开始
+## 安装与启用
 
 ### 要求
 
-- GNU Emacs 30.1 或更高版本，并启用动态模块支持
-- 从源码构建时，需要 Rust 1.88 或更高版本（2024 edition）、Cargo、C 编译器和 GNU Make
+- GNU Emacs 30.1 或更高版本，启用动态模块支持。当前 CI 使用 Emacs 31。
+- 从源码构建需要 Rust 1.88 或更高版本、Cargo、C 编译器和 GNU Make。
 
-当前 `Makefile` 按 Linux 动态模块后缀 `.so` 安装模块，flake 直接生成的 per-system 输出也只有
-`x86_64-linux`。在其他平台从源码构建时，需要相应调整 `Makefile` 中的模块后缀；flake 的 overlay 不受该
-per-system 列表限制。
+Makefile 使用 Linux 模块后缀 `.so`，flake 的预定义输出仅支持 `x86_64-linux`。其他平台需要自行调整构建配置。
 
 ### 从源码安装
-
-克隆仓库并运行 `make local`：
 
 ```sh
 git clone https://codeberg.org/bingshan/emacs-jieba-rs.git
@@ -39,276 +30,182 @@ cd emacs-jieba-rs
 make local
 ```
 
-`make local` 会以 `release` 模式构建动态模块，将其复制到 `lisp/`，并生成软件包描述与自动加载文件。随后将 `lisp/` 加入
-`load-path` 并载入软件包：
+`make local` 构建 release 模块并将其放入 `lisp/`，同时生成包描述和自动加载文件。在 Emacs 配置中加入：
 
 ```elisp
 (add-to-list 'load-path "/path/to/emacs-jieba-rs/lisp")
 (require 'jieba-rs)
 ```
 
-Nix 用户可以直接使用 flake 提供的软件包和 overlay，参见
-[Nix 用户指南](#nix-%E7%94%A8%E6%88%B7%E6%8C%87%E5%8D%97)。
+使用 Nix 安装的方法见 [Nix](#nix)。
 
-### 配置并启用
+### 启用
 
-例如，在所有文本模式中自动启用 `jieba-rs-mode`：
+执行 `M-x jieba-rs-mode`，在当前缓冲区启用并加载原生模块。若需自动启用，可在相应主模式的 hook 中调用
+`(jieba-rs-mode 1)`。
 
-```elisp
-(defun my-jieba-rs-mode-enable ()
-  "Enable `jieba-rs-mode'."
-  (jieba-rs-mode 1))
+启用后，使用 `M-f`、`M-b` 按中文词移动，`M-e`、`M-a` 按中文句移动。其他操作通过 `M-x` 调用：
 
-(add-hook 'text-mode-hook #'my-jieba-rs-mode-enable)
-```
+| 命令                               | 用途                                  |
+| ---------------------------------- | ------------------------------------- |
+| `jieba-rs-segment-region`          | 对选中区域分词                        |
+| `jieba-rs-segment-buffer`          | 对缓冲区分词                          |
+| `jieba-rs-extract-keywords-region` | 提取选中区域的关键词                  |
+| `jieba-rs-extract-keywords-buffer` | 提取缓冲区的关键词                    |
+| `jieba-rs-toggle-boundaries`       | 切换可视词边界                        |
+| `jieba-rs-toggle-tags`             | 切换词性标签                          |
+| `jieba-rs-add-word`                | 添加词语；加 `C-u` 同时保存到用户词典 |
 
-也可以在当前缓冲区中执行 `M-x jieba-rs-mode`。所有用户选项和外观均属于 `jieba-rs` 自定义组，可执行
-`M-x customize-group RET jieba-rs RET` 进行设置。
+缓冲区分词和关键词提取都遵守窄化范围。所有选项和外观可通过 `M-x customize-group RET jieba-rs RET` 设置。
 
-### 基本用法
+## 功能与配置
 
-启用次要模式后，可以直接使用 GNU Emacs 原有的 `M-f`、`M-b`、`M-e` 和 `M-a` 按中文词句移动。选中一段文本后执行
-`M-x jieba-rs-segment-region` 可以查看分词结果；执行 `M-x jieba-rs-toggle-boundaries` 或
-`M-x jieba-rs-toggle-tags` 可以切换可视词边界或词性标签。
+### 分词
 
-## 功能
+区域和缓冲区分词命令将结果显示在结果缓冲区中，由 `jieba-rs-segment-function` 选择算法：
 
-### 分词算法
+| 模式             | 函数                             | 说明                         |
+| ---------------- | -------------------------------- | ---------------------------- |
+| 精确模式（默认） | `jieba-rs-module-segment`        | 尽可能准确地切分文本         |
+| 全模式           | `jieba-rs-module-segment-all`    | 扫描所有可能的词语           |
+| 搜索引擎模式     | `jieba-rs-module-segment-search` | 生成用于搜索索引的细粒度切分 |
 
-`jieba-rs-segment-function` 控制分词命令使用的算法：
+`jieba-rs-hmm` 默认为 `t`，控制精确模式和搜索引擎模式的新词发现；全模式不使用 HMM。词移动和可视词边界固定使用精确模式，不受
+`jieba-rs-segment-function` 影响。
 
-| 模式         | 函数                             | 说明                                       |
-| ------------ | -------------------------------- | ------------------------------------------ |
-| 精确模式     | `jieba-rs-module-segment`        | 默认模式，支持 HMM 新词发现                |
-| 全模式       | `jieba-rs-module-segment-all`    | 扫描所有可能的切分，不使用 HMM             |
-| 搜索引擎模式 | `jieba-rs-module-segment-search` | 产生适合建立搜索索引的细粒度切分，支持 HMM |
+### 词句移动
 
-例如，改用搜索引擎模式：
+`jieba-rs-mode` 重映射标准移动命令，因此自定义的原命令键位也会沿用：
 
-```elisp
-(setq jieba-rs-segment-function #'jieba-rs-module-segment-search)
-```
-
-区域分词会在结果缓冲区中显示切分结果；在支持工具提示的图形会话中启用 `tooltip-mode` 时，还会在区域开头显示工具提示。缓冲区分词会遵守窄化范围。
-
-### 词边界与词性标签
-
-`jieba-rs-toggle-boundaries` 使用覆盖层在词之间显示
-`jieba-rs-boundary-separator`，`jieba-rs-toggle-tags` 则在词后显示词性标签。两种显示都不会改写缓冲区文本。
-
-软件包只为当前窗口的可见范围创建覆盖层，并在编辑、滚动或重新居中后刷新。词性显示会将常见的 ICTCLAS 词性代码映射为小写类别，例如
-`noun`、`verb` 和 `adj`；没有映射的代码保持不变。
-
-### 关键词提取
-
-`jieba-rs-extract-function` 控制关键词提取方式：
-
-| 值         | 说明                           |
-| ---------- | ------------------------------ |
-| `tfidf`    | 使用 TF-IDF 提取关键词，默认值 |
-| `textrank` | 使用 TextRank 提取关键词       |
-| `precise`  | 返回精确模式的分词结果         |
-
-区域和缓冲区命令在没有数值前缀参数时会询问 Top K，默认值为 `10`；数值前缀参数会直接作为 Top K。TF-IDF 和 TextRank
-使用该值限制结果数量。缓冲区命令会遵守窄化范围。
-
-### 中文词句移动
-
-`jieba-rs-mode` 通过命令重映射替换标准词句移动命令，因此原命令的自定义键位也会自动沿用：
-
-| 标准命令            | `jieba-rs` 命令              | 默认键位 |
+| 标准命令            | 替代命令                     | 默认键位 |
 | ------------------- | ---------------------------- | -------- |
 | `forward-word`      | `jieba-rs-forward-word`      | `M-f`    |
 | `backward-word`     | `jieba-rs-backward-word`     | `M-b`    |
 | `forward-sentence`  | `jieba-rs-forward-sentence`  | `M-e`    |
 | `backward-sentence` | `jieba-rs-backward-sentence` | `M-a`    |
 
-词移动始终使用精确模式，并遵守 `jieba-rs-hmm`。句移动将中文句号、问号、感叹号和换行，即 `[。！？\n]+`，视为句子分隔符。
+词移动遵守 `jieba-rs-hmm`。句移动以 `。`、`！`、`？` 和换行为分隔符。
+
+### 词边界与词性标签
+
+两种显示都使用覆盖层，不改写文本。覆盖层只覆盖当前窗口的可见范围，并随编辑和滚动刷新。
+
+- `jieba-rs-boundary-separator` 设置词间分隔符，默认为两个空格。
+- `jieba-rs-boundary-face` 设置词边界外观，默认继承 `shadow`。
+- `jieba-rs-tag-face` 设置词性标签外观，默认继承 `font-lock-keyword-face` 并使用斜体。
+
+常见词性代码会显示为 `noun`、`verb`、`adj` 等类别；未映射的代码原样显示。 `jieba-rs-normalize-rules`
+只处理覆盖层分词用的文本副本，默认将控制字符和部分空白替换为空格。自定义规则应逐字符匹配，并替换为一个普通空格，以保持覆盖层位置与原文一致。
+
+### 关键词提取
+
+`jieba-rs-extract-function` 可设为 `tfidf`（默认）或 `textrank`。命令会询问关键词数量 Top K，默认
+10；也可用数值前缀直接指定，例如 `C-u 5 M-x jieba-rs-extract-keywords-region`。
+
+设为 `precise` 则返回精确模式的分词结果，不按 Top K 限制数量。
 
 ### 用户词典
 
-`jieba-rs-user-dict` 指定用户词典文件，默认值为：
+`jieba-rs-user-dict` 默认为 Emacs 用户目录下的 `jieba-rs/user.dict`。
+启用次要模式时会加载该文件（如果存在）。每行包含词语、词频和可选词性，以空格分隔，例如 `星际争霸 100 nz` 或 `量子计算机 200`。
 
-```elisp
-(expand-file-name "jieba-rs/user.dict" user-emacs-directory)
-```
+`M-x jieba-rs-add-word` 将词语加入当前会话；`C-u M-x jieba-rs-add-word` 还会追加到该文件。将
+`jieba-rs-user-dict` 设为 `nil` 会禁用自动加载和保存。
 
-将该选项设为 `nil` 可以禁用自动加载。词典使用 `jieba-rs` 的标准格式，每行依次包含词语、词频和可选词性标签，并以空格分隔：
+词典由同一 Emacs 进程的所有缓冲区共享。禁用次要模式或将路径设为 `nil`，不会撤销已经加载或添加的词语。
 
-```text
-星际争霸 100 nz
-量子计算机 200
-```
+## Nix
 
-启用 `jieba-rs-mode` 时，如果文件存在，软件包会将其载入原生模块。执行 `M-x jieba-rs-add-word` 可以在当前 Emacs
-会话中添加词语；带前缀参数执行 `C-u M-x jieba-rs-add-word`，还会将新词追加到用户词典文件。
+### 试用与构建
 
-## 命令
+在仓库根目录执行 `nix run .#emacs31-with-jieba-rs`，可用独立初始化目录启动带有本包的 Emacs 31。启动后执行
+`M-x jieba-rs-mode` 即可使用。其他包输出为：
 
-| 命令                               | 说明                                         |
-| ---------------------------------- | -------------------------------------------- |
-| `jieba-rs-mode`                    | 在当前缓冲区中启用或禁用次要模式             |
-| `jieba-rs-segment-region`          | 对活动区域分词并显示结果                     |
-| `jieba-rs-segment-buffer`          | 对当前可访问范围分词并显示结果               |
-| `jieba-rs-toggle-boundaries`       | 切换可视词边界                               |
-| `jieba-rs-toggle-tags`             | 切换可视词性标签                             |
-| `jieba-rs-add-word`                | 向词典添加词语；前缀参数同时持久化到用户词典 |
-| `jieba-rs-extract-keywords-region` | 从活动区域提取关键词                         |
-| `jieba-rs-extract-keywords-buffer` | 从当前可访问范围提取关键词                   |
-| `jieba-rs-forward-word`            | 向前移动指定数量的中文词                     |
-| `jieba-rs-backward-word`           | 向后移动指定数量的中文词                     |
-| `jieba-rs-forward-sentence`        | 向前移动指定数量的中文句                     |
-| `jieba-rs-backward-sentence`       | 向后移动指定数量的中文句                     |
+| 输出              | 用途                                 |
+| ----------------- | ------------------------------------ |
+| `jieba-rs`        | 包含 Rust 模块的 Emacs 包            |
+| `jieba-rs-module` | Rust 动态模块；构建时运行 Cargo 测试 |
 
-## 自定义选项
+例如，`nix build .#jieba-rs` 构建 Emacs 包。测试命令见下文。
 
-| 选项                          | 默认值                                                         | 用途                         |
-| ----------------------------- | -------------------------------------------------------------- | ---------------------------- |
-| `jieba-rs-hmm`                | `t`                                                            | 是否启用 HMM 新词发现        |
-| `jieba-rs-user-dict`          | `(expand-file-name "jieba-rs/user.dict" user-emacs-directory)` | 用户词典路径；`nil` 表示禁用 |
-| `jieba-rs-segment-function`   | `jieba-rs-module-segment`                                      | 分词算法                     |
-| `jieba-rs-normalize-rules`    | 内置控制字符和空白规则                                         | 覆盖层分词前的文本规范化规则 |
-| `jieba-rs-extract-function`   | `tfidf`                                                        | 关键词提取算法               |
-| `jieba-rs-boundary-separator` | `"  "`                                                         | 可视词边界使用的分隔字符串   |
+### 集成到 NixOS
 
-### 外观
-
-| 外观                     | 默认样式                                 | 用途       |
-| ------------------------ | ---------------------------------------- | ---------- |
-| `jieba-rs-boundary-face` | 继承 `shadow`                            | 可视词边界 |
-| `jieba-rs-tag-face`      | 继承 `font-lock-keyword-face` 并使用斜体 | 词性标签   |
-
-## 行为与注意事项
-
-- `jieba-rs-normalize-rules` 只用于覆盖层分词，不会修改缓冲区内容。为保持字符位置一致，每条规则的替换字符串必须恰好是一个普通空格。
-- 原生模块中的 Jieba 实例属于当前 Emacs 进程。载入用户词典或通过 `jieba-rs-add-word`
-  添加的词语会影响所有缓冲区；禁用次要模式或将 `jieba-rs-user-dict` 设为 `nil` 不会撤销已经载入的词语。
-- `jieba-rs-segment-buffer` 和 `jieba-rs-extract-keywords-buffer` 都会遵守窄化范围。
-- 中文词移动和可视覆盖层固定使用精确模式；改变 `jieba-rs-segment-function` 只会影响区域与缓冲区分词命令。
-
-## 开发与测试
-
-Emacs Lisp 代码位于 `lisp/`，Rust 源码位于 `src/`，集成测试位于 `tests/`。仓库根目录的 `Makefile`
-提供以下常用目标：
-
-| 目标                         | 用途                                            |
-| ---------------------------- | ----------------------------------------------- |
-| `make`、`make module`        | 以 `release` 模式构建原生模块并复制到 `lisp/`   |
-| `make local`                 | 构建模块，并生成软件包描述与自动加载文件        |
-| `make autoloads`             | 生成 `lisp/jieba-rs-autoloads.el`               |
-| `make pkg`                   | 生成 `lisp/jieba-rs-pkg.el`                     |
-| `make test`                  | 构建模块并运行 ERT 测试                         |
-| `make check`                 | 构建模块，再运行 Cargo 和 ERT 测试              |
-| `make release-version`       | 校验并输出 Emacs 包与 Rust crate 的共同版本     |
-| `make release-archive`       | 生成 `dist/jieba-rs-VERSION.tar` 发布归档       |
-| `make check-release-archive` | 校验归档内容，并隔离安装后执行分词              |
-| `make release-artifact`      | 输出当前发布归档的路径                          |
-| `make clean`                 | 删除 `lisp/` 生成文件和 `dist/`，保留 `target/` |
-
-运行完整检查：
-
-```sh
-make check
-```
-
-`release-archive` 生成一个标准 Emacs 包归档，其中同时包含 `jieba-rs-module.so`。Rust
-模块不作为独立软件包发布，并与 Emacs 包使用同一版本号。 当前 GitHub 发布归档使用 Rust 1.88.0 在 Ubuntu 24.04
-上构建，目标为 `x86_64-unknown-linux-gnu`。
-
-`nix develop` 提供仓库使用的格式化和维护工具，但不是包含 Rust、C 编译器和 GNU Emacs 的完整源码构建环境。
-
-## Nix 用户指南
-
-flake 提供 overlay、Emacs 包与 Rust 模块输出、带有 `jieba-rs` 的 GNU Emacs 启动器，以及 ERT、byte
-compilation 和 Checkdoc 检查器。 当前直接生成的软件包、开发环境和启动器仅有 `x86_64-linux` 输出；overlay
-本身不受这一 per-system 列表限制。
-
-### 在 NixOS 中使用 overlay
-
-下面的 flake 示例将 overlay 应用于 `emacsPackagesFor`，再把包含 `jieba-rs` 的 `emacs-pgtk`
-加入系统软件包：
+在现有 flake 中添加名为 `emacs-jieba-rs` 的 input，URL 为
+`git+https://codeberg.org/bingshan/emacs-jieba-rs.git`。将它加入 `outputs`
+的参数集合，再将下面的模块加入 `nixosSystem` 的 `modules` 列表。它通过 overlay 将本包加入
+`emacsPackagesFor`，并安装带有本包的 Emacs：
 
 ```nix
-{
-  inputs = {
-    emacs-jieba-rs = {
-      url = "git+https://codeberg.org/bingshan/emacs-jieba-rs.git";
+(
+  {
+    pkgs,
+    ...
+  }:
+  {
+    environment = {
+      systemPackages = [
+        (
+          (pkgs.emacsPackagesFor pkgs.emacs-pgtk)
+          .emacsWithPackages
+          (epkgs: [ epkgs.jieba-rs ])
+        )
+      ];
     };
 
     nixpkgs = {
-      url = "git+https://github.com/NixOS/nixpkgs.git?ref=nixos-unstable";
+      overlays = [
+        emacs-jieba-rs.overlays.default
+      ];
     };
-  };
-
-  outputs =
-    {
-      emacs-jieba-rs,
-      nixpkgs,
-      ...
-    }:
-    {
-      nixosConfigurations = {
-        HOSTNAME =
-          nixpkgs.lib.nixosSystem
-            {
-              modules = [
-                (
-                  { pkgs, ... }:
-                  let
-                    emacs =
-                      (pkgs.emacsPackagesFor pkgs.emacs-pgtk).emacsWithPackages
-                        (
-                          epkgs: [
-                            epkgs.jieba-rs
-                          ]
-                        );
-                  in
-                  {
-                    environment = {
-                      systemPackages = [
-                        emacs
-                      ];
-                    };
-
-                    nixpkgs = {
-                      overlays = [
-                        emacs-jieba-rs.overlays.default
-                      ];
-                    };
-                  }
-                )
-              ];
-              system = "x86_64-linux";
-            };
-      };
-    };
-}
+  }
+)
 ```
 
-### 使用 flake 输出
+overlay 没有预定义输出的系统限制，但其他平台需自行验证。安装后按上文启用次要模式。
 
-| 输出                            | 用途                                      |
-| ------------------------------- | ----------------------------------------- |
-| `jieba-rs`                      | 构建包含 Rust 模块的 Emacs 包             |
-| `jieba-rs-module`               | 构建 Rust 动态模块并运行 Cargo 测试       |
-| `emacs30-with-jieba-rs`         | 在全新的独立初始化目录中启动 GNU Emacs 30 |
-| `emacs31-with-jieba-rs`         | 在全新的独立初始化目录中启动 GNU Emacs 31 |
-| `emacs30-run-jieba-rs-tests`    | 使用 GNU Emacs 30 运行 ERT 测试           |
-| `emacs31-run-jieba-rs-tests`    | 使用 GNU Emacs 31 运行 ERT 测试           |
-| `emacs30-byte-compile-jieba-rs` | 使用 GNU Emacs 30 编译并加载验证软件包    |
-| `emacs31-byte-compile-jieba-rs` | 使用 GNU Emacs 31 编译并加载验证软件包    |
-| `emacs30-checkdoc-jieba-rs`     | 使用 GNU Emacs 30 运行 Checkdoc           |
-| `emacs31-checkdoc-jieba-rs`     | 使用 GNU Emacs 31 运行 Checkdoc           |
+## 开发与测试
 
-例如，构建并启动 GNU Emacs 31，再使用同一版本运行测试：
+源码位于 `lisp/` 和 `src/`，ERT 集成测试位于 `tests/`。在已安装源码构建工具的环境中，运行 `make check` 构建模块并执行
+Cargo 和 ERT 测试。
+
+使用 Nix 可分别运行：
 
 ```sh
-nix build .#emacs31-with-jieba-rs
-nix run .#emacs31-with-jieba-rs
+nix flake check --all-systems
+nix build .#jieba-rs-module
 nix run .#emacs31-run-jieba-rs-tests
+nix run .#emacs31-byte-compile-jieba-rs
+nix run .#emacs31-checkdoc-jieba-rs
 ```
 
-对测试启动器执行 `nix build` 会构建启动器及其依赖，但不会执行启动器中的 ERT 命令；要运行 ERT 测试，请使用 `nix run`。
+`nix flake check` 检查 flake 输出；ERT、字节编译和 Checkdoc 需要通过上述 `nix run` 命令执行。
+`nix develop` 提供格式化和维护工具，不包含完整的 Rust、C 编译器和 Emacs 构建环境。
+
+常用 Makefile 目标：
+
+| 目标                         | 用途                                            |
+| ---------------------------- | ----------------------------------------------- |
+| `make`、`make module`        | 构建 release 模块并复制到 `lisp/`               |
+| `make local`                 | 构建模块，生成包描述和自动加载文件              |
+| `make pkg`、`make autoloads` | 分别生成包描述、自动加载文件                    |
+| `make test`                  | 构建模块并运行 ERT 测试                         |
+| `make check`                 | 构建模块并运行 Cargo、ERT 测试                  |
+| `make clean`                 | 删除 `lisp/` 生成文件和 `dist/`，保留 `target/` |
+
+更新 Nix 依赖时，分别运行 `nix flake update` 和 `nix flake update --flake ./tools`，
+更新根目录和维护工具的两份锁文件。
+
+### 发布归档
+
+`make release-archive` 生成 `dist/jieba-rs-VERSION.tar`，其中包含 Emacs 包和 Rust 模块。
+二者共用版本号，模块不单独发布。发布相关目标还需要 `jq` 和 GNU tar。
+
+- `make release-version`：检查 Emacs 包与 Rust crate 版本一致，并输出版本号。
+- `make check-release-archive`：构建并校验归档，在隔离目录安装后执行分词验证。
+- `make release-artifact`：构建归档并输出路径。
+
+GitHub 发布工作流使用 Rust 1.88.0 在 Ubuntu 24.04 构建 `x86_64-unknown-linux-gnu` 归档，并使用
+Emacs 31 验证安装。
 
 ## 相关项目
 
@@ -323,9 +220,8 @@ nix run .#emacs31-run-jieba-rs-tests
 
 ## 项目许可证
 
-`emacs-jieba-rs` 是自由软件，遵循
-[GNU General Public License](https://www.gnu.org/licenses/gpl-3.0.html) 第 3 版
-或更高版本。完整许可证文本见 [`COPYING`](../COPYING)。
+`emacs-jieba-rs` 遵循 GNU GPL 第 3 版或更高版本，完整文本见 [`COPYING`](../COPYING)。本文档遵循 GNU
+FDL 第 1.3 版或更高版本，完整文本见下节。
 
 ## GNU Free Documentation License
 

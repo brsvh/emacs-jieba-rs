@@ -27,7 +27,7 @@
         };
       };
 
-      url = "git+https://codeberg.org/bingshan/infix.git?ref=main";
+      url = "git+https://github.com/brsvh/infix.git?ref=main";
     };
 
     nixpkgs = {

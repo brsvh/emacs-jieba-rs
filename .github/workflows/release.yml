@@ -112,7 +112,7 @@ jobs:
 
           make_version="$(
             nix shell --inputs-from . \
-              nixpkgs#emacs30 \
+              nixpkgs#emacs31 \
               nixpkgs#gnumake \
               nixpkgs#jq \
               --command make --silent release-version
@@ -235,17 +235,13 @@ jobs:
                 .#jieba-rs-module --print-build-logs
               ;;
             ERT)
-              run_check nix run .#emacs30-run-jieba-rs-tests
               run_check nix run .#emacs31-run-jieba-rs-tests
               ;;
             byte-compilation)
               run_check nix run \
-                .#emacs30-byte-compile-jieba-rs
-              run_check nix run \
                 .#emacs31-byte-compile-jieba-rs
               ;;
             checkdoc)
-              run_check nix run .#emacs30-checkdoc-jieba-rs
               run_check nix run .#emacs31-checkdoc-jieba-rs
               ;;
             *)
@@ -317,7 +313,7 @@ jobs:
           release_shell=(
             nix shell --inputs-from .
             nixpkgs#coreutils
-            nixpkgs#emacs30
+            nixpkgs#emacs31
             nixpkgs#findutils
             nixpkgs#gnumake
             nixpkgs#gnutar
@@ -520,7 +516,6 @@ jobs:
             rm -rf "$test_root"
           }
 
-          verify_install emacs30
           verify_install emacs31
 
       - name: Prepare release handoff

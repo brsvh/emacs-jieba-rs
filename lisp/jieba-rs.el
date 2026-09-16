@@ -434,40 +434,56 @@ Each token is a vector of start, end, word and optional category."
         (jieba-rs--trim-segment-cache))
       line)))
 
-(defun jieba-rs--visible-range ()
-  "Return the visible range, or the accessible range if undisplayed."
-  (let* ((window (get-buffer-window nil t))
+(defun jieba-rs--visible-range (&optional window)
+  "Return WINDOW's visible range, or the accessible range if undisplayed."
+  (let* ((window (or window (get-buffer-window nil t)))
          (beg (if window (window-start window) (point-min)))
          (end (if window (window-end window t) (point-max))))
     (if (and end (> end beg))
         (cons (max beg (point-min)) (min end (point-max)))
       (cons (point-min) (point-max)))))
 
+(defun jieba-rs--visible-ranges ()
+  "Return the union of visible ranges in windows showing this buffer."
+  (if-let* ((windows (get-buffer-window-list nil nil t)))
+      (let ((ranges (sort (mapcar #'jieba-rs--visible-range windows)
+                          (lambda (a b) (< (car a) (car b)))))
+            merged)
+        (dolist (range ranges)
+          (if (and merged (<= (car range) (cdar merged)))
+              (setcdr (car merged) (max (cdar merged) (cdr range)))
+            (push range merged)))
+        (nreverse merged))
+    (list (jieba-rs--visible-range))))
+
 (defun jieba-rs--map-visible-tokens (function &optional tagged)
   "Call FUNCTION for visible normalized tokens, optionally TAGGED."
-  (let* ((range (jieba-rs--visible-range))
-         (beg (car range))
-         (end (cdr range))
+  (let* ((ranges (jieba-rs--visible-ranges))
          (content-end (save-excursion
                         (goto-char (point-max))
                         (skip-chars-backward " \t\n\r\f　")
                         (point))))
     ;; Retain raw motion, normalized boundaries and tags for each line.
-    (setq jieba-rs--segment-cache-limit (max 128 (* 3 (count-lines beg end))))
-    (save-excursion
-      (goto-char beg)
-      (while (< (point) end)
-        (let* ((line (jieba-rs--line-tokens (point) tagged t))
-               (tokens (aref line 2))
-               (limit (min end content-end)))
-          (cl-loop for index from (jieba-rs--token-index tokens (1- beg) nil)
-                   below (length tokens)
-                   for token = (aref tokens index)
-                   for pos = (aref token 1)
-                   while (if tagged (<= pos limit) (< pos limit))
-                   unless (string-blank-p (aref token 2))
-                   do (funcall function token))
-          (goto-char (aref line 1)))))
+    (setq jieba-rs--segment-cache-limit
+          (max 128 (* 3 (cl-loop for (beg . end) in ranges
+                                 sum (count-lines beg end)))))
+    (dolist (range ranges)
+      (let ((beg (car range))
+            (end (cdr range)))
+        (save-excursion
+          (goto-char beg)
+          (while (< (point) end)
+            (let* ((line (jieba-rs--line-tokens (point) tagged t))
+                   (tokens (aref line 2))
+                   (limit (min end content-end)))
+              (cl-loop for index from (jieba-rs--token-index tokens (1- beg) nil)
+                       below (length tokens)
+                       for token = (aref tokens index)
+                       for pos = (aref token 1)
+                       while (if tagged (<= pos limit) (< pos limit))
+                       unless (string-blank-p (aref token 2))
+                       do (funcall function token))
+              (goto-char (aref line 1)))))))
     (jieba-rs--trim-segment-cache)))
 
 (defun jieba-rs--token-index (tokens position backward)
@@ -606,7 +622,7 @@ Each token is a vector of start, end, word and optional category."
     (jieba-rs--schedule-refresh 'boundaries window)))
 
 (defun jieba-rs--refresh-boundaries ()
-  "Rebuild boundary overlays for the visible window."
+  "Rebuild boundary overlays for all windows showing this buffer."
   (when jieba-rs--boundaries-timer
     (cancel-timer jieba-rs--boundaries-timer))
   (setq jieba-rs--boundaries-timer nil)
@@ -646,7 +662,7 @@ Each token is a vector of start, end, word and optional category."
    'tags nil (if (> (buffer-size) 10000) 0.15 0)))
 
 (defun jieba-rs--refresh-tags ()
-  "Rebuild tag overlays for the visible window."
+  "Rebuild tag overlays for all windows showing this buffer."
   (when jieba-rs--tags-timer
     (cancel-timer jieba-rs--tags-timer))
   (setq jieba-rs--tags-timer nil)

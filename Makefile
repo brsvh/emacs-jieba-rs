@@ -107,7 +107,10 @@ define CHECK_ARCHIVE_INSTALL_ELISP
           package-user-dir
           (expand-file-name "packages" test-dir)
           package-directory-list nil
-          package-native-compile nil)
+          package-native-compile nil
+          package-quickstart nil
+          package-quickstart-file
+          (expand-file-name "package-quickstart.el" test-dir))
     (package-initialize)
     (package-install-file archive)
     (require (quote jieba-rs))

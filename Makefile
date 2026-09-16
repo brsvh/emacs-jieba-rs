@@ -175,6 +175,11 @@ release-version:
 release-archive: $(JIEBA_RS_ARCHIVE_STAMP)
 	@set -eu
 	IFS= read -r archive < "$(JIEBA_RS_ARCHIVE_STAMP)"
+	if ! test -f "$$archive"; then
+		$(RM) "$(JIEBA_RS_ARCHIVE_STAMP)"
+		$(MAKE) --silent "$(JIEBA_RS_ARCHIVE_STAMP)"
+		IFS= read -r archive < "$(JIEBA_RS_ARCHIVE_STAMP)"
+	fi
 	test -f "$$archive"
 
 release-artifact: release-archive

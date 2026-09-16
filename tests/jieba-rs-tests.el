@@ -28,6 +28,54 @@
 (require 'jieba-rs-module)
 (require 'seq)
 
+(defun jieba-rs-tests--run-native-child (form)
+  "Evaluate FORM in a fresh module process, failing after 15 seconds."
+  (with-temp-buffer
+    (let* ((process
+            (make-process
+             :name "jieba-rs-test" :buffer (current-buffer)
+             :connection-type 'pipe :noquery t :sentinel #'ignore
+             :command
+             (list (expand-file-name invocation-name invocation-directory)
+                   "-Q" "--batch"
+                   "-l" (locate-library "jieba-rs-module")
+                   "--eval" (prin1-to-string form))))
+           (deadline (+ (float-time) 15)))
+      (unwind-protect
+          (progn
+            (while (and (process-live-p process)
+                        (< (float-time) deadline))
+              (accept-process-output process 0.05))
+            (should-not (process-live-p process))
+            (should (equal (list (process-exit-status process)
+                                 (buffer-string))
+                           '(0 "ok"))))
+        (when (process-live-p process)
+          (delete-process process))))))
+
+(ert-deftest jieba-rs-tests-gc-can-reenter-native-module ()
+  "Allow GC hooks to query the dictionary while creating results."
+  (dolist (operation '(jieba-rs-module-segment-tag
+                       jieba-rs-module-extract-keywords))
+    (jieba-rs-tests--run-native-child
+     `(let ((text (mapconcat (lambda (i) (format "token%d" i))
+                             (number-sequence 1 500) " "))
+            (calls 0))
+        (jieba-rs-module-segment "warmup" nil)
+        (garbage-collect)
+        (let ((gc-cons-threshold 1000)
+              (gc-cons-percentage 0.0)
+              (post-gc-hook
+               (list (lambda ()
+                       (setq gc-cons-threshold most-positive-fixnum)
+                       (jieba-rs-module-dictionary-version)
+                       (setq calls (1+ calls))))))
+          ,(if (eq operation 'jieba-rs-module-segment-tag)
+               '(jieba-rs-module-segment-tag text nil)
+             '(jieba-rs-module-extract-keywords text 500 "tfidf")))
+        (unless (> calls 0) (error "GC hook was not exercised"))
+        (princ "ok")))))
+
 (ert-deftest jieba-rs-tests-segment-precise ()
   "Basic Chinese word segmentation in precise mode."
   (should (equal (jieba-rs-module-segment "我们中出了一个叛徒" nil)

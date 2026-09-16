@@ -144,26 +144,40 @@ fn segment_tag<'a>(
     hmm: Value<'a>,
 ) -> Result<Vector<'a>> {
     let text = text.0;
-    let dictionary = JIEBA.lock().unwrap();
-    let jieba = &dictionary.jieba;
-    let tags = jieba.tag(&text, hmm.is_not_nil());
+    let tags: Vec<_> = {
+        let dictionary = JIEBA.lock().unwrap();
+        dictionary
+            .jieba
+            .tag(&text, hmm.is_not_nil())
+            .into_iter()
+            .map(|tag| {
+                (
+                    tag.start,
+                    tag.end,
+                    &text[tag.byte_start..tag.byte_end],
+                    dictionary
+                        .tags
+                        .get(tag.word)
+                        .map(String::as_str)
+                        .unwrap_or(tag.tag)
+                        .to_owned(),
+                )
+            })
+            .collect()
+    };
+    // Lisp allocation can run GC hooks that reenter the module.
     let len = tags.len();
     let vec = env.make_vector(len, ())?;
-    for (i, tag) in tags.iter().enumerate() {
+    for (i, (start, end, word, category)) in tags.iter().enumerate() {
         let plist = env.list(&[
             env.intern(":start")?,
-            (tag.start as i64).into_lisp(env)?,
+            (*start as i64).into_lisp(env)?,
             env.intern(":end")?,
-            (tag.end as i64).into_lisp(env)?,
+            (*end as i64).into_lisp(env)?,
             env.intern(":word")?,
-            tag.word.into_lisp(env)?,
+            (*word).into_lisp(env)?,
             env.intern(":category")?,
-            dictionary
-                .tags
-                .get(tag.word)
-                .map(String::as_str)
-                .unwrap_or(tag.tag)
-                .into_lisp(env)?,
+            category.as_str().into_lisp(env)?,
         ])?;
         vec.set(i, plist)?;
     }
@@ -197,7 +211,10 @@ fn load_user_dict(env: &Env, path: LispString) -> Result<()> {
             dictionary.version = dictionary.version.wrapping_add(1);
             Ok(())
         }
-        Err(e) => env.signal("error", (e.to_string(),)),
+        Err(e) => {
+            drop(dictionary);
+            env.signal("error", (e.to_string(),))
+        }
     }
 }
 
@@ -272,6 +289,7 @@ fn extract_keywords<'a>(
     } else {
         TEXT_RANK.extract_keywords(jieba, &text, k, vec![])
     };
+    drop(dictionary);
     let vec = env.make_vector(keywords.len(), ())?;
     for (i, kw) in keywords.iter().enumerate() {
         let plist = env.list(&[

@@ -859,6 +859,71 @@
       (should (memq boundary-timer timer-idle-list))
       (should (memq tag-timer timer-idle-list)))))
 
+(ert-deftest jieba-rs-tests-shared-text-refreshes-displays ()
+  "Invalidate independent displays for edits in any related buffer."
+  (let ((initial-buffers (copy-sequence jieba-rs--display-buffers)))
+    (with-temp-buffer
+      (insert "中国北京\n上海深圳\n")
+      (let* ((base (current-buffer))
+             (clone (clone-indirect-buffer " *jieba-shared*" nil))
+             (editor (make-indirect-buffer base " *jieba-editor*"))
+             (displays (list base clone)))
+        (unwind-protect
+            (progn
+              (with-current-buffer clone
+                (narrow-to-region 1 6)
+                (setq-local jieba-rs-boundary-separator " / "))
+              (dolist (buffer displays)
+                (with-current-buffer buffer
+                  (jieba-rs-toggle-boundaries)
+                  (jieba-rs-toggle-tags)))
+              ;; Unrelated edits must not disturb these displays.
+              (with-temp-buffer (insert "不相关"))
+              (dolist (buffer displays)
+                (with-current-buffer buffer
+                  (should jieba-rs-tag-overlays)
+                  (should-not jieba-rs--tags-timer)))
+              ;; Edit through a mode-free sibling, the clone, then the base.
+              (dolist (buffer (list editor clone base))
+                (with-current-buffer buffer (delete-region 1 3))
+                (dolist (display displays)
+                  (with-current-buffer display
+                    (should-not jieba-rs-boundaries-overlays)
+                    (should-not jieba-rs-tag-overlays)
+                    (should jieba-rs--boundaries-timer)
+                    (should jieba-rs--tags-timer)))
+                (dolist (display displays)
+                  (with-current-buffer display
+                    (jieba-rs--refresh-boundaries)
+                    (jieba-rs--refresh-tags)
+                    (should (equal (sort (mapcar #'overlay-start
+                                                 jieba-rs-tag-overlays) #'<)
+                                   (if (eq display clone) '(3) '(3 6 8))))))
+                ;; Restore the text for the next editing source.
+                (with-current-buffer buffer
+                  (goto-char 1)
+                  (insert "中国"))
+                (dolist (display displays)
+                  (with-current-buffer display
+                    (jieba-rs--refresh-boundaries)
+                    (jieba-rs--refresh-tags))))
+              (with-current-buffer clone
+                (should (= (point-max) 6))
+                (should (equal jieba-rs-boundary-separator " / "))
+                (should (equal (substring-no-properties
+                                (overlay-get (car jieba-rs-boundaries-overlays)
+                                             'after-string))
+                               " / ")))
+              (jieba-rs-mode -1)
+              (should-not (memq base jieba-rs--display-buffers))
+              (should (memq clone jieba-rs--display-buffers)))
+          (kill-buffer editor)
+          (kill-buffer clone))))
+    (should (equal jieba-rs--display-buffers initial-buffers))
+    (unless initial-buffers
+      (should-not (memq #'jieba-rs--shared-text-after-change
+                        (default-value 'after-change-functions))))))
+
 (ert-deftest jieba-rs-tests-persist-separates-records ()
   "Keep records separate in empty and unterminated dictionaries."
   (dolist (initial '("" "甲乙 10 nz" "甲乙 10 nz\n"))

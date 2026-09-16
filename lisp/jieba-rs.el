@@ -274,6 +274,9 @@ Word motion and explicit segmentation commands always use the full text."
 (defvar-local jieba-rs--tags-timer nil
   "Pending idle timer for tag refresh.")
 
+(defvar jieba-rs--display-buffers nil
+  "Buffers with enabled displays that may need shared-text refreshes.")
+
 (defun jieba-rs--load-module ()
   "Load the native module if not already loaded."
   (unless (featurep 'jieba-rs-module)
@@ -571,6 +574,14 @@ Each token is a vector of start, end, word and optional category."
 (defun jieba-rs--update-display-hooks ()
   "Keep refresh and cleanup hooks consistent with display state."
   (if (or jieba-rs--boundaries-enabled jieba-rs--tags-enabled)
+      (cl-pushnew (current-buffer) jieba-rs--display-buffers)
+    (setq jieba-rs--display-buffers
+          (delq (current-buffer) jieba-rs--display-buffers)))
+  ;; An edit can originate in a sibling with neither display enabled.
+  (if jieba-rs--display-buffers
+      (add-hook 'after-change-functions #'jieba-rs--shared-text-after-change)
+    (remove-hook 'after-change-functions #'jieba-rs--shared-text-after-change))
+  (if (or jieba-rs--boundaries-enabled jieba-rs--tags-enabled)
       (unless jieba-rs--display-configuration
         (setq jieba-rs--display-configuration
               (copy-tree (jieba-rs--display-options))))
@@ -639,6 +650,19 @@ Each token is a vector of start, end, word and optional category."
         (jieba-rs--boundaries-after-change))
       (when jieba-rs--tags-enabled
         (jieba-rs--tags-after-change)))))
+
+(defun jieba-rs--shared-text-after-change (&rest _)
+  "Invalidate displays in other buffers sharing the edited text."
+  (let ((edited (current-buffer))
+        (base (or (buffer-base-buffer) (current-buffer))))
+    (dolist (buffer jieba-rs--display-buffers)
+      (when (and (buffer-live-p buffer) (not (eq buffer edited))
+                 (eq (or (buffer-base-buffer buffer) buffer) base))
+        (with-current-buffer buffer
+          (when jieba-rs--boundaries-enabled
+            (jieba-rs--boundaries-after-change))
+          (when jieba-rs--tags-enabled
+            (jieba-rs--tags-after-change)))))))
 
 (defun jieba-rs--window-change (window)
   "Refresh enabled displays after WINDOW changes its buffer or size."

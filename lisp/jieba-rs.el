@@ -141,6 +141,9 @@
                  (file :tag "Dictionary file"))
   :group 'jieba-rs)
 
+(defvar jieba-rs--loaded-user-dicts (make-hash-table :test #'equal)
+  "File states of dictionaries successfully loaded in this session.")
+
 (defcustom jieba-rs-segment-function 'jieba-rs-module-segment
   "Segmentation function to use.
 `jieba-rs-module-segment' uses precise mode (default).
@@ -253,18 +256,46 @@ or t for the default fallback.  RULES is a list of (REGEXP
            (error "Cannot find jieba-rs-module%s"
                   module-file-suffix))))))
 
-(defun jieba-rs--load-user-dict ()
-  "Load the user dictionary if `jieba-rs-user-dict' is set."
+(defun jieba-rs--dictionary-file-state (file)
+  "Return FILE's identity, size and change times, or nil if unavailable."
+  (when-let* ((attributes (file-attributes file)))
+    (list (file-attribute-device-number attributes)
+          (file-attribute-inode-number attributes)
+          (file-attribute-size attributes)
+          (file-attribute-modification-time attributes)
+          (file-attribute-status-change-time attributes))))
+
+(defun jieba-rs--load-user-dict (&optional force)
+  "Load a configured user dictionary when its file changes.
+With FORCE, reload unchanged files and propagate errors."
   (when (and jieba-rs-user-dict
              (file-exists-p jieba-rs-user-dict))
     (condition-case err
-        (jieba-rs-module-load-user-dict
-         (expand-file-name jieba-rs-user-dict))
+        (let* ((file (file-truename jieba-rs-user-dict))
+               (state (jieba-rs--dictionary-file-state file)))
+          (when (or force (not state)
+                    (not (equal state (gethash file jieba-rs--loaded-user-dicts))))
+            (jieba-rs-module-load-user-dict file)
+            ;; A concurrently edited file must be retried next time.
+            (if (and state (equal state (jieba-rs--dictionary-file-state file)))
+                (puthash file state jieba-rs--loaded-user-dicts)
+              (remhash file jieba-rs--loaded-user-dicts))))
       (error
-       (display-warning 'jieba-rs
-                        (format "Failed to load user dict: %s"
-                                (error-message-string err))
-                        :warning)))))
+       (if force
+           (signal (car err) (cdr err))
+         (display-warning 'jieba-rs
+                          (format "Failed to load user dict: %s"
+                                  (error-message-string err))
+                          :warning))))))
+
+;;;###autoload
+(defun jieba-rs-reload-user-dict ()
+  "Reload the configured user dictionary even when its file is unchanged."
+  (interactive)
+  (unless (and jieba-rs-user-dict (file-exists-p jieba-rs-user-dict))
+    (user-error "No existing Jieba user dictionary configured"))
+  (jieba-rs--load-module)
+  (jieba-rs--load-user-dict t))
 
 (defun jieba-rs--normalize-text (beg end)
   "Normalize text in region BEG..END for overlay segmentation.

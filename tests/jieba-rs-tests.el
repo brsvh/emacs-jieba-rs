@@ -329,6 +329,62 @@
               (should (= (length words) 3)))))
       (delete-file dict-file))))
 
+(ert-deftest jieba-rs-tests-user-dict-reuses-unchanged-file ()
+  "Share successful loads across buffers and alternate file names."
+  (let* ((directory (make-temp-file "jieba-dict-cache-" t))
+         (jieba-rs-user-dict (expand-file-name "dict" directory))
+         (alias (expand-file-name "alias" directory))
+         (jieba-rs--loaded-user-dicts (make-hash-table :test #'equal))
+         (version (jieba-rs-module-dictionary-version)))
+    (unwind-protect
+        (progn
+          (with-temp-file jieba-rs-user-dict (insert "自动加载缓存词 100 file\n"))
+          (make-symbolic-link jieba-rs-user-dict alias)
+          (dotimes (_ 3)
+            (with-temp-buffer (jieba-rs-mode 1)))
+          (let ((jieba-rs-user-dict alias))
+            (with-temp-buffer (jieba-rs-mode 1)))
+          (should (= (1+ version) (jieba-rs-module-dictionary-version)))
+          (jieba-rs-module-add-word "自动加载缓存词" 100 "session")
+          (jieba-rs--load-user-dict)
+          (should (equal (plist-get (aref (jieba-rs-module-segment-tag
+                                           "自动加载缓存词" nil) 0) :category)
+                         "session"))
+          (jieba-rs-reload-user-dict)
+          (should (= (+ version 3) (jieba-rs-module-dictionary-version)))
+          (should (equal (plist-get (aref (jieba-rs-module-segment-tag
+                                           "自动加载缓存词" nil) 0) :category)
+                         "file"))
+          (with-temp-file jieba-rs-user-dict
+            (insert "自动加载缓存词 100 changed\n"))
+          (jieba-rs--load-user-dict)
+          (should (= (+ version 4) (jieba-rs-module-dictionary-version)))
+          (should (equal (plist-get (aref (jieba-rs-module-segment-tag
+                                           "自动加载缓存词" nil) 0) :category)
+                         "changed")))
+      (delete-directory directory t))))
+
+(ert-deftest jieba-rs-tests-user-dict-retries-failed-load ()
+  "Cache a dictionary only after a successful load."
+  (let ((jieba-rs-user-dict (make-temp-file "jieba-dict-retry-"))
+        (jieba-rs--loaded-user-dicts (make-hash-table :test #'equal))
+        (load (symbol-function 'jieba-rs-module-load-user-dict))
+        (calls 0))
+    (unwind-protect
+        (cl-letf (((symbol-function 'jieba-rs-module-load-user-dict)
+                   (lambda (file)
+                     (cl-incf calls)
+                     (if (= calls 1) (error "Temporary read failure")
+                       (funcall load file))))
+                  ((symbol-function 'display-warning) #'ignore))
+          (jieba-rs--load-user-dict)
+          (should (= (hash-table-count jieba-rs--loaded-user-dicts) 0))
+          (jieba-rs--load-user-dict)
+          (jieba-rs--load-user-dict)
+          (should (= calls 2))
+          (should (= (hash-table-count jieba-rs--loaded-user-dicts) 1)))
+      (delete-file jieba-rs-user-dict))))
+
 (ert-deftest jieba-rs-tests-user-dict-nil ()
   "Without a user dictionary, default segmentation applies."
   (jieba-rs-mode 1)

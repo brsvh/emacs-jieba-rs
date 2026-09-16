@@ -112,7 +112,8 @@ make local
 ### 用户词典
 
 `jieba-rs-user-dict` 默认为 Emacs 用户目录下的 `jieba-rs/user.dict`。
-启用次要模式时会加载该文件（如果存在）。每行包含词语、词频和可选词性，以空格分隔，例如 `星际争霸 100 nz` 或 `量子计算机 200`。
+启用次要模式时会加载该文件（如果存在）；同一会话中，文件未变化时会复用已加载的词典。每行包含词语、词频和可选词性，以空格分隔，例如 `星际争霸 100 nz`
+或 `量子计算机 200`。`M-x jieba-rs-reload-user-dict` 可强制重载，即使文件未变化。
 
 `M-x jieba-rs-add-word` 将词语加入当前会话；`C-u M-x jieba-rs-add-word` 还会追加到该文件。将
 `jieba-rs-user-dict` 设为 `nil` 会禁用自动加载和保存。

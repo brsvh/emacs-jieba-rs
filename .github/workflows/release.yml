@@ -137,6 +137,13 @@ jobs:
           printf 'release_version=%s\n' "$release_version" \
             >> "$GITHUB_OUTPUT"
 
+  maintenance:
+    name: Verify maintenance configuration
+    needs: identify
+    permissions:
+      contents: read
+    uses: ./.github/workflows/maintenance-checks.yml
+
   check:
     name: Verify / ${{ matrix.check }}
     needs: identify
@@ -150,7 +157,6 @@ jobs:
       fail-fast: false
       matrix:
         check:
-          - flake
           - cargo-test
           - ERT
           - byte-compilation
@@ -203,33 +209,6 @@ jobs:
           }
 
           case "$CHECK" in
-            flake)
-              run_check nix flake check --all-systems
-              # Agent skill fixtures are not project release sources.
-              mapfile -d '' -t format_sources < <(
-                git ls-files -z -- \
-                  '*.nix' \
-                  '*.rs' \
-                  '*.el' \
-                  '*.md' \
-                  Makefile \
-                  ':(exclude).agents/**'
-              )
-              if test "${#format_sources[@]}" -eq 0; then
-                printf 'No project format sources found\n' >&2
-                status=1
-              else
-                run_check nix fmt -- --fail-on-change \
-                  "${format_sources[@]}"
-              fi
-              run_check \
-                nix shell --inputs-from . \
-                  nixpkgs#actionlint \
-                  nixpkgs#shellcheck \
-                  --command actionlint \
-                    -ignore 'unexpected key "queue"' \
-                    .github/workflows/*.yml
-              ;;
             cargo-test)
               run_check nix build \
                 .#jieba-rs-module --print-build-logs
@@ -256,6 +235,7 @@ jobs:
     name: Build release
     needs:
       - identify
+      - maintenance
       - check
     runs-on: ubuntu-24.04
     timeout-minutes: 90

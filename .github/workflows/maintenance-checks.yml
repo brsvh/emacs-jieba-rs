@@ -1,0 +1,96 @@
+name: Maintenance checks
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/**"
+      - "**/*.nix"
+      - "**/flake.lock"
+      - "**/*.rs"
+      - "**/*.el"
+      - "**/*.md"
+      - Cargo.toml
+      - Cargo.lock
+      - Makefile
+      - "!.agents/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/**"
+      - "**/*.nix"
+      - "**/flake.lock"
+      - "**/*.rs"
+      - "**/*.el"
+      - "**/*.md"
+      - Cargo.toml
+      - Cargo.lock
+      - Makefile
+      - "!.agents/**"
+  workflow_call:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: emacs-jieba-rs-maintenance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Flake, formatting and workflows
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6.0.3
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31.10.7
+        with:
+          github_access_token: ${{ github.token }}
+
+      - name: Restore Nix store cache
+        uses: nix-community/cache-nix-action@v7.0.2
+        with:
+          primary-key: >-
+            emacs-jieba-rs-nix-${{ runner.os }}-maintenance-${{
+              hashFiles('**/*.nix', '**/flake.lock')
+            }}
+          restore-prefixes-first-match: |
+            emacs-jieba-rs-nix-${{ runner.os }}-maintenance-
+            emacs-jieba-rs-nix-${{ runner.os }}-
+          save: >-
+            ${{
+              github.event_name == 'push' &&
+              github.ref == 'refs/heads/main'
+            }}
+
+      - name: Check flake, formatting and workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          nix flake check --all-systems
+          # Agent skill fixtures are not project release sources.
+          mapfile -d '' -t format_sources < <(
+            git ls-files -z -- \
+              '*.nix' '*.rs' '*.el' '*.md' Makefile \
+              ':(exclude).agents/**'
+          )
+          test "${#format_sources[@]}" -gt 0
+          nix fmt -- --fail-on-change "${format_sources[@]}"
+          nix shell --inputs-from . \
+            nixpkgs#actionlint nixpkgs#shellcheck \
+            --command actionlint \
+              -ignore 'unexpected key "queue"' \
+              .github/workflows/*.yml

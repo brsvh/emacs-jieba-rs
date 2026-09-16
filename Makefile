@@ -226,6 +226,7 @@ check-release-archive: release-archive
 
 test: module
 	$(EMACS_BATCH) -L $(LISP_DIR) -L tools/elfmt \
+		-l $(JIEBA_RS_MAIN) -l tools/elfmt/elfmt.el \
 		$(foreach file,$(TEST_FILES),-l $(file)) \
 		-f ert-run-tests-batch-and-exit
 
@@ -233,6 +234,7 @@ check: module
 	@set -eu
 	$(CARGO) test --locked
 	$(EMACS_BATCH) -L $(LISP_DIR) -L tools/elfmt \
+		-l $(JIEBA_RS_MAIN) -l tools/elfmt/elfmt.el \
 		$(foreach file,$(TEST_FILES),-l $(file)) \
 		-f ert-run-tests-batch-and-exit
 

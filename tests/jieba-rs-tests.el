@@ -554,5 +554,31 @@
       (should-error (jieba-rs-add-word "测试" 100 "n x" t)
                     :type 'user-error))))
 
+(ert-deftest jieba-rs-tests-update-existing-word-tag ()
+  "Apply explicit tags to existing words and retain them when omitted."
+  (jieba-rs-module-add-word "词性覆盖测试词" 100 "old")
+  (jieba-rs-module-add-word "词性覆盖测试词" 100 "custom")
+  (should (equal (plist-get (aref (jieba-rs-module-segment-tag
+                                   "词性覆盖测试词" nil) 0) :category)
+                 "custom"))
+  (jieba-rs-module-add-word "词性覆盖测试词" 100 nil)
+  (should (equal (plist-get (aref (jieba-rs-module-segment-tag
+                                   "词性覆盖测试词" nil) 0) :category)
+                 "custom")))
+
+(ert-deftest jieba-rs-tests-user-dict-overrides-existing-tag ()
+  "Apply the last dictionary tag to an already known word."
+  (let ((file (make-temp-file "jieba-tags-")))
+    (unwind-protect
+        (progn
+          (jieba-rs-module-add-word "词典词性测试词" 100 "old")
+          (with-temp-file file
+            (insert "词典词性测试词 100 first\n词典词性测试词 100 last\n"))
+          (jieba-rs-module-load-user-dict file)
+          (should (equal (plist-get (aref (jieba-rs-module-segment-tag
+                                           "词典词性测试词" nil) 0) :category)
+                         "last")))
+      (delete-file file))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

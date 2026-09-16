@@ -14,6 +14,7 @@
 // along with emacs-jieba-rs.  If not, see
 // <https://www.gnu.org/licenses/>.
 
+use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
 use emacs::{Env, IntoLisp, Result, Value, Vector, defun};
@@ -21,8 +22,15 @@ use jieba_rs::{Jieba, KeywordExtract, TextRank, TfIdf};
 
 emacs::plugin_is_GPL_compatible!();
 
-static JIEBA: LazyLock<Mutex<Jieba>> =
-    LazyLock::new(|| Mutex::new(Jieba::new()));
+#[derive(Default)]
+struct Dictionary {
+    jieba: Jieba,
+    // Upstream updates frequencies, but retains tags for existing words.
+    tags: HashMap<String, String>,
+}
+
+static JIEBA: LazyLock<Mutex<Dictionary>> =
+    LazyLock::new(|| Mutex::new(Dictionary::default()));
 
 /// Segment TEXT in precise mode.
 ///
@@ -38,7 +46,8 @@ fn segment<'a>(
     text: String,
     hmm: Value<'a>,
 ) -> Result<Vector<'a>> {
-    let words = JIEBA.lock().unwrap().cut(&text, hmm.is_not_nil());
+    let words =
+        JIEBA.lock().unwrap().jieba.cut(&text, hmm.is_not_nil());
     let len = words.len();
     let vec = env.make_vector(len, ())?;
     for (i, token) in words.iter().enumerate() {
@@ -55,7 +64,7 @@ fn segment<'a>(
 /// Return a vector of word strings.
 #[defun]
 fn segment_all(env: &Env, text: String) -> Result<Vector<'_>> {
-    let words = JIEBA.lock().unwrap().cut_all(&text);
+    let words = JIEBA.lock().unwrap().jieba.cut_all(&text);
     let len = words.len();
     let vec = env.make_vector(len, ())?;
     for (i, token) in words.iter().enumerate() {
@@ -82,6 +91,7 @@ fn segment_search<'a>(
     let words = JIEBA
         .lock()
         .unwrap()
+        .jieba
         .cut_for_search(&text, hmm.is_not_nil());
     let len = words.len();
     let vec = env.make_vector(len, ())?;
@@ -103,7 +113,8 @@ fn segment_tag<'a>(
     text: String,
     hmm: Value<'a>,
 ) -> Result<Vector<'a>> {
-    let jieba = JIEBA.lock().unwrap();
+    let dictionary = JIEBA.lock().unwrap();
+    let jieba = &dictionary.jieba;
     let tags = jieba.tag(&text, hmm.is_not_nil());
     let len = tags.len();
     let vec = env.make_vector(len, ())?;
@@ -116,7 +127,12 @@ fn segment_tag<'a>(
             env.intern(":word")?,
             tag.word.into_lisp(env)?,
             env.intern(":category")?,
-            tag.tag.into_lisp(env)?,
+            dictionary
+                .tags
+                .get(tag.word)
+                .map(String::as_str)
+                .unwrap_or(tag.tag)
+                .into_lisp(env)?,
         ])?;
         vec.set(i, plist)?;
     }
@@ -126,16 +142,25 @@ fn segment_tag<'a>(
 /// Load a user dictionary from PATH.
 #[defun]
 fn load_user_dict(env: &Env, path: String) -> Result<()> {
-    let file = match std::fs::File::open(&path) {
+    let contents = match std::fs::read_to_string(&path) {
         Ok(f) => f,
         Err(e) => {
             return env.signal("file-error", (e.to_string(), path));
         }
     };
-    let mut reader = std::io::BufReader::new(file);
-    let mut jieba = JIEBA.lock().unwrap();
-    match jieba.load_dict(&mut reader) {
-        Ok(()) => Ok(()),
+    let mut dictionary = JIEBA.lock().unwrap();
+    match dictionary.jieba.load_dict(&mut contents.as_bytes()) {
+        Ok(()) => {
+            for line in contents.lines() {
+                let mut fields = line.split_whitespace();
+                if let (Some(word), Some(_freq), Some(tag)) =
+                    (fields.next(), fields.next(), fields.next())
+                {
+                    dictionary.tags.insert(word.into(), tag.into());
+                }
+            }
+            Ok(())
+        }
         Err(e) => env.signal("error", (e.to_string(),)),
     }
 }
@@ -163,8 +188,16 @@ fn add_word(
     } else {
         None
     };
-    let mut jieba = JIEBA.lock().unwrap();
-    Ok(jieba.add_word(&word, freq_opt, tag_opt.as_deref()))
+    let mut dictionary = JIEBA.lock().unwrap();
+    let freq = dictionary.jieba.add_word(
+        &word,
+        freq_opt,
+        tag_opt.as_deref(),
+    );
+    if let Some(tag) = tag_opt {
+        dictionary.tags.insert(word, tag);
+    }
+    Ok(freq)
 }
 
 /// Extract top-K keywords from TEXT using TF-IDF or TextRank.
@@ -187,11 +220,12 @@ fn extract_keywords<'a>(
     let k = k.min(text.chars().count());
     let use_tfidf = method.is_not_nil()
         && method.into_rust::<String>()? == "tfidf";
-    let jieba = JIEBA.lock().unwrap();
+    let dictionary = JIEBA.lock().unwrap();
+    let jieba = &dictionary.jieba;
     let keywords = if use_tfidf {
-        TfIdf::default().extract_keywords(&jieba, &text, k, vec![])
+        TfIdf::default().extract_keywords(jieba, &text, k, vec![])
     } else {
-        TextRank::default().extract_keywords(&jieba, &text, k, vec![])
+        TextRank::default().extract_keywords(jieba, &text, k, vec![])
     };
     let vec = env.make_vector(keywords.len(), ())?;
     for (i, kw) in keywords.iter().enumerate() {
@@ -217,7 +251,8 @@ mod tests {
 
     #[test]
     fn test_segment_precise() {
-        let jieba = JIEBA.lock().unwrap();
+        let dictionary = JIEBA.lock().unwrap();
+        let jieba = &dictionary.jieba;
         let words: Vec<&str> = jieba
             .cut("我们中出了一个叛徒", false)
             .iter()
@@ -231,13 +266,15 @@ mod tests {
 
     #[test]
     fn test_segment_empty() {
-        let jieba = JIEBA.lock().unwrap();
+        let dictionary = JIEBA.lock().unwrap();
+        let jieba = &dictionary.jieba;
         assert!(jieba.cut("", false).is_empty());
     }
 
     #[test]
     fn test_segment_with_hmm() {
-        let jieba = JIEBA.lock().unwrap();
+        let dictionary = JIEBA.lock().unwrap();
+        let jieba = &dictionary.jieba;
         let words: Vec<&str> = jieba
             .cut("我们中出了一个叛徒", true)
             .iter()
@@ -248,7 +285,8 @@ mod tests {
 
     #[test]
     fn test_segment_all() {
-        let jieba = JIEBA.lock().unwrap();
+        let dictionary = JIEBA.lock().unwrap();
+        let jieba = &dictionary.jieba;
         let words: Vec<&str> = jieba
             .cut_all("南京市长江大桥")
             .iter()
@@ -259,7 +297,8 @@ mod tests {
 
     #[test]
     fn test_segment_search() {
-        let jieba = JIEBA.lock().unwrap();
+        let dictionary = JIEBA.lock().unwrap();
+        let jieba = &dictionary.jieba;
         let words: Vec<&str> = jieba
             .cut_for_search("南京市长江大桥", true)
             .iter()
@@ -270,7 +309,8 @@ mod tests {
 
     #[test]
     fn test_segment_tag() {
-        let jieba = JIEBA.lock().unwrap();
+        let dictionary = JIEBA.lock().unwrap();
+        let jieba = &dictionary.jieba;
         let tags = jieba.tag("我是拖拉机学院手扶拖拉机专业的", true);
         assert!(!tags.is_empty());
         assert_eq!(tags[0].word, "我");

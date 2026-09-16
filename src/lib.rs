@@ -98,6 +98,16 @@ static TF_IDF: LazyLock<TfIdf> = LazyLock::new(TfIdf::default);
 static TEXT_RANK: LazyLock<TextRank> =
     LazyLock::new(TextRank::default);
 
+fn validate_dictionary_word(word: &str) -> Result<()> {
+    // Cedar uses a zero byte to terminate keys.
+    if word.contains('\0') {
+        return Err(emacs::Error::msg(
+            "dictionary words must not contain NUL",
+        ));
+    }
+    Ok(())
+}
+
 /// Segment TEXT in precise mode.
 ///
 /// Attempt to cut the sentence most accurately.  Suitable for text
@@ -238,6 +248,7 @@ fn load_user_dict(env: &Env, path: LispString) -> Result<()> {
     for line in contents.lines() {
         let mut fields = line.split_whitespace();
         if let Some(word) = fields.next() {
+            validate_dictionary_word(word)?;
             let frequency = fields
                 .next()
                 .map(str::parse::<usize>)
@@ -284,6 +295,7 @@ fn add_word(
     tag: Value,
 ) -> Result<usize> {
     let word = word.0;
+    validate_dictionary_word(&word)?;
     let freq_opt: Option<usize> = if freq.is_not_nil() {
         Some(freq.into_rust()?)
     } else {

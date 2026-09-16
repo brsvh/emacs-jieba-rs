@@ -39,7 +39,8 @@
              (list (expand-file-name invocation-name invocation-directory)
                    "-Q" "--batch"
                    "-l" (locate-library "jieba-rs-module")
-                   "--eval" (prin1-to-string form))))
+                   "--eval" (let ((print-escape-control-characters t))
+                              (prin1-to-string form)))))
            (deadline (+ (float-time) 15)))
       (unwind-protect
           (progn
@@ -52,6 +53,36 @@
                            '(0 "ok"))))
         (when (process-live-p process)
           (delete-process process))))))
+
+(ert-deftest jieba-rs-tests-reject-nul-dictionary-words ()
+  "Reject NUL keys without modifying or poisoning the shared dictionary."
+  (jieba-rs-tests--run-native-child
+   '(progn
+      (require 'ert)
+      (let ((file (make-temp-file "jieba-nul-")))
+        (unwind-protect
+            (progn
+              (jieba-rs-module-add-word "词典完整性测试词" 100 "old")
+              (let ((version (jieba-rs-module-dictionary-version))
+                    (before (jieba-rs-module-segment "中国北京" nil))
+                    (tags (jieba-rs-module-segment-tag "词典完整性测试词" nil)))
+                (dolist (word '("\0" "中国\0" "\0中国" "中国\0北京"))
+                  (should-error (jieba-rs-module-add-word word nil "new")
+                                :type 'rust-error)
+                  (with-temp-file file
+                    (insert "词典完整性测试词 1 changed\n"
+                            word " 100 n\n"))
+                  (should-error (jieba-rs-module-load-user-dict file)
+                                :type 'rust-error)
+                  (should (= version (jieba-rs-module-dictionary-version)))
+                  (should (equal before (jieba-rs-module-segment "中国北京" nil)))
+                  (should (equal tags (jieba-rs-module-segment-tag
+                                       "词典完整性测试词" nil)))))
+              (jieba-rs-module-add-word "后续正常添加词" 100 "n")
+              (should (equal (jieba-rs-module-segment "后续正常添加词" nil)
+                             ["后续正常添加词"])))
+          (delete-file file)))
+      (princ "ok"))))
 
 (ert-deftest jieba-rs-tests-gc-can-reenter-native-module ()
   "Allow GC hooks to query the dictionary while creating results."

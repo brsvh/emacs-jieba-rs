@@ -14,6 +14,7 @@ on:
       - Cargo.toml
       - Cargo.lock
       - Makefile
+      - tools/release-members.txt
       - "!.agents/**"
   pull_request:
     branches:
@@ -28,6 +29,7 @@ on:
       - Cargo.toml
       - Cargo.lock
       - Makefile
+      - tools/release-members.txt
       - "!.agents/**"
   workflow_call:
   workflow_dispatch:

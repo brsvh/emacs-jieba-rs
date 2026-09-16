@@ -619,6 +619,15 @@ jobs:
           path: release-handoff
           digest-mismatch: error
 
+      - name: Check out release archive policy
+        uses: actions/checkout@v6.0.3
+        with:
+          ref: ${{ github.sha }}
+          path: release-policy
+          sparse-checkout: tools/release-members.txt
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
       - name: Validate verified handoff
         shell: bash
         env:
@@ -694,10 +703,8 @@ jobs:
           package_dir="jieba-rs-${version}"
           {
             printf '%s/\n' "$package_dir"
-            printf '%s/COPYING\n' "$package_dir"
-            printf '%s/jieba-rs.el\n' "$package_dir"
-            printf '%s/jieba-rs-pkg.el\n' "$package_dir"
-            printf '%s/jieba-rs-module.so\n' "$package_dir"
+            sed "s|^|${package_dir}/|" \
+              release-policy/tools/release-members.txt
           } | sort > "$extract_dir/expected-members"
           tar -tf "release-handoff/assets/${asset}" \
             | sort > "$extract_dir/actual-members"
@@ -709,7 +716,7 @@ jobs:
               | cut -c 1 \
               | tr -d '\n'
           )"
-          test "$member_types" = 'd----'
+          [[ "$member_types" =~ ^d-+$ ]]
           tar \
             --extract \
             --file "release-handoff/assets/${asset}" \

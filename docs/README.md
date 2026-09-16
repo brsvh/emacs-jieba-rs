@@ -218,6 +218,8 @@ Emacs 构建环境。
 `make release-archive` 生成 `dist/jieba-rs-VERSION.tar`，其中包含 Emacs 包和 Rust 模块。
 二者共用版本号，模块不单独发布。发布相关目标还需要 `jq` 和 GNU tar。
 
+归档成员清单位于 `tools/release-members.txt`。本地构建和发布工作流分别使用该清单校验归档；发布任务从对应提交读取清单。
+
 - `make release-version`：检查 Emacs 包与 Rust crate 版本一致，并输出版本号。
 - `make check-release-archive`：构建并校验归档，在隔离目录安装后执行分词验证。
 - `make release-artifact`：构建归档并输出路径。

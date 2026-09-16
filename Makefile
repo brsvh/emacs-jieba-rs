@@ -25,6 +25,7 @@ JIEBA_RS_PKG := $(LISP_DIR)/jieba-rs-pkg.el
 JIEBA_RS_AUTOLOADS := $(LISP_DIR)/jieba-rs-autoloads.el
 JIEBA_RS_MODULE := $(LISP_DIR)/jieba-rs-module.so
 JIEBA_RS_ARCHIVE_STAMP := $(DIST_DIR)/.jieba-rs-archive
+JIEBA_RS_ARCHIVE_MEMBERS := tools/release-members.txt
 
 # Rust and test files.
 RUST_FILES := \
@@ -205,10 +206,7 @@ check-release-archive: release-archive
 	trap 'rm -rf "$$temp_dir"' EXIT HUP INT TERM
 	{
 		printf '%s/\n' "$$package_dir"
-		printf '%s/COPYING\n' "$$package_dir"
-		printf '%s/jieba-rs.el\n' "$$package_dir"
-		printf '%s/jieba-rs-pkg.el\n' "$$package_dir"
-		printf '%s/jieba-rs-module.so\n' "$$package_dir"
+		sed "s|^|$$package_dir/|" "$(JIEBA_RS_ARCHIVE_MEMBERS)"
 	} | LC_ALL=C sort > "$$temp_dir/expected-members"
 	$(TAR) -tf "$$archive" \
 		| LC_ALL=C sort > "$$temp_dir/actual-members"
@@ -276,6 +274,7 @@ $(JIEBA_RS_ARCHIVE_STAMP): \
 	$(JIEBA_RS_LISP_FILES) \
 	$(JIEBA_RS_PKG) \
 	$(JIEBA_RS_MODULE) \
+	$(JIEBA_RS_ARCHIVE_MEMBERS) \
 	Cargo.toml \
 	Cargo.lock \
 	COPYING \
@@ -305,10 +304,7 @@ $(JIEBA_RS_ARCHIVE_STAMP): \
 		"$$package_dir"
 	{
 		printf '%s/\n' "$$package_dir"
-		printf '%s/COPYING\n' "$$package_dir"
-		printf '%s/jieba-rs.el\n' "$$package_dir"
-		printf '%s/jieba-rs-pkg.el\n' "$$package_dir"
-		printf '%s/jieba-rs-module.so\n' "$$package_dir"
+		sed "s|^|$$package_dir/|" "$(JIEBA_RS_ARCHIVE_MEMBERS)"
 	} | LC_ALL=C sort > "$$temp_dir/expected-members"
 	$(TAR) -tf "$$temp_dir/$${package_dir}.tar" \
 		| LC_ALL=C sort > "$$temp_dir/actual-members"

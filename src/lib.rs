@@ -181,8 +181,9 @@ fn load_user_dict(env: &Env, path: LispString) -> Result<()> {
         }
     };
     let mut dictionary = JIEBA.lock().unwrap();
-    dictionary.version = dictionary.version.wrapping_add(1);
-    match dictionary.jieba.load_dict(&mut contents.as_bytes()) {
+    // Upstream mutates frequencies before it can report a parse error.
+    let mut jieba = dictionary.jieba.clone();
+    match jieba.load_dict(&mut contents.as_bytes()) {
         Ok(()) => {
             for line in contents.lines() {
                 let mut fields = line.split_whitespace();
@@ -192,6 +193,8 @@ fn load_user_dict(env: &Env, path: LispString) -> Result<()> {
                     dictionary.tags.insert(word.into(), tag.into());
                 }
             }
+            dictionary.jieba = jieba;
+            dictionary.version = dictionary.version.wrapping_add(1);
             Ok(())
         }
         Err(e) => env.signal("error", (e.to_string(),)),

@@ -754,5 +754,35 @@
         (should (= (plist-get (aref tags (1- (length tags))) :end)
                    (length text)))))))
 
+(ert-deftest jieba-rs-tests-dictionary-load-is-atomic ()
+  "A failed load leaves frequencies, tags and the cache version intact."
+  (let ((file (make-temp-file "jieba-atomic-dict-"))
+        (text "南京市长江大桥研究生命起源"))
+    (unwind-protect
+        (progn
+          (jieba-rs-module-add-word "事务词典既有词" 100 "old")
+          (let ((version (jieba-rs-module-dictionary-version))
+                (before (jieba-rs-module-segment text nil))
+                (tags (jieba-rs-module-segment-tag "事务词典既有词" nil)))
+            (with-temp-file file
+              (insert "事务词典既有词 0 new\n"
+                      "南京市长江大桥 100000000 ns\n错误 invalid n\n"))
+            (should-error (jieba-rs-module-load-user-dict file))
+            (should (= version (jieba-rs-module-dictionary-version)))
+            (should (equal before (jieba-rs-module-segment text nil)))
+            (should (equal tags (jieba-rs-module-segment-tag
+                                 "事务词典既有词" nil)))
+            (jieba-rs-module-add-word "事务之后新词" 1 nil)
+            (should (equal before (jieba-rs-module-segment text nil))))
+          (with-temp-file file (insert "事务词典既有词 100 new\n"))
+          (let ((version (jieba-rs-module-dictionary-version)))
+            (jieba-rs-module-load-user-dict file)
+            (should (= (1+ version) (jieba-rs-module-dictionary-version))))
+          (should (equal (plist-get (aref (jieba-rs-module-segment-tag
+                                           "事务词典既有词" nil) 0)
+                                    :category)
+                         "new")))
+      (delete-file file))))
+
 (provide 'jieba-rs-tests)
 ;;; jieba-rs-tests.el ends here

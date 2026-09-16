@@ -73,7 +73,7 @@
                   emacsPackagesFor
                   ;
 
-                crane-lib = (crane.mkLib prev.pkgs);
+                crane-lib = crane.mkLib prev.pkgs;
 
                 rustVersion = "${
                   (prev.lib.importTOML (projectRoot + /Cargo.toml))
@@ -90,11 +90,9 @@
                     buildCargoPackage,
                     cleanCargoSource,
                     lib,
-                    pkgs,
                     stdenv,
                     melpaBuild,
                     projectRoot,
-                    writeText,
                     ...
                   }:
                   let
@@ -153,7 +151,7 @@
                     };
                   };
 
-                scope = finalAttrs: prevAttrs: {
+                scope = finalAttrs: _: {
                   jieba-rs = finalAttrs.callPackage package {
                     inherit (crane-lib)
                       cleanCargoSource
@@ -229,7 +227,6 @@
                     ;
 
                   overlays = [
-                    rust-overlay.overlays.default
                     self.overlays.default
                   ];
                 };

@@ -280,6 +280,7 @@ $(JIEBA_RS_ARCHIVE_STAMP): \
 	Cargo.toml \
 	Cargo.lock \
 	COPYING \
+	NEWS \
 	$(BUILD_FILE)
 	@set -eu
 	version=$$($(MAKE) --silent release-version)
@@ -290,6 +291,7 @@ $(JIEBA_RS_ARCHIVE_STAMP): \
 	mkdir -p "$$temp_dir/$$package_dir" "$(DIST_DIR)"
 	cp \
 		COPYING \
+		NEWS \
 		$(JIEBA_RS_LISP_FILES) \
 		$(JIEBA_RS_PKG) \
 		$(JIEBA_RS_MODULE) \

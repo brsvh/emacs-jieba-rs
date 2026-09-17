@@ -1,0 +1,134 @@
+emacs-jieba-rs NEWS -- history of user-visible changes.
+
+Copyright (C) 2026 Bingshan Chang <chang@bingshan.org>
+See the end of the file for license conditions.
+
+These notes cover the Emacs package 'jieba-rs' and its Rust dynamic module.
+Both use the same package version, independently of the upstream jieba-rs
+library version.
+
+* Changes in emacs-jieba-rs 0.2.0 (2026-09-17)
+
+** The native module now uses upstream jieba-rs 0.11.0.
+This updates the segmentation library from 0.10.3 in our previous release.  It
+includes fixes for connected letter and digit runs, and optimizations to
+dictionary loading, segmentation, part-of-speech tagging, and keyword
+extraction.  See the upstream release notes:
+https://github.com/messense/jieba-rs/releases/tag/v0.10.4
+https://github.com/messense/jieba-rs/releases/tag/v0.11.0
+
+The requirements remain GNU Emacs 30.1 with dynamic module support and, when
+building from source, Rust 1.88 or later.
+
+** New user option 'jieba-rs-max-display-line-length'.
+Automatic word boundary and part-of-speech displays now skip lines longer than
+10,000 characters by default, to keep editing responsive.  The limit excludes
+the terminating newline and respects narrowing.  Customize this option to change
+the limit, or set it to nil to display lines of any length.  Word motion and
+explicit segmentation commands continue to process the full text.
+
+** Word motion and displays reuse line segmentation results.
+Repeated movement and display refreshes reuse cached results until the text,
+segmentation settings, or shared dictionary changes.  Word boundaries and
+part-of-speech displays share tagged results when both are enabled.  Keyword
+extractors are also reused between calls.
+
+** Displays follow all windows showing a buffer.
+Visible ranges from multiple windows are combined without duplicate annotations.
+Displays refresh after scrolling, resizing, narrowing, or widening, and skip
+invisible text such as folded sections.
+
+** Indirect buffers have independent display state.
+Cloned indirect buffers no longer share overlays or refresh timers.  Editing
+shared text through either a base buffer or an indirect buffer refreshes the
+displays in the other buffers, even when the buffer used for the edit has no
+display enabled.
+
+** Enabled displays reflect configuration and dictionary changes.
+Changes to HMM use, normalization rules, boundary separators, and the line
+length limit refresh active displays.  Adding words or reloading a dictionary
+refreshes displays in all affected visible buffers.  Normalization rules now
+select the current major mode's entry, with the t entry used as a fallback.
+
+** Display cleanup and part-of-speech annotations are more reliable.
+The final word on a line receives its part-of-speech annotation.  Delayed
+refreshes act on their original buffer.  Changing major modes or encountering a
+segmentation error clears obsolete or partial displays, and empty displays can
+still be toggled off.
+
+** Sentence movement stops at sentence boundaries.
+Forward movement reaches the accessible buffer end for an unterminated final
+sentence.  Backward movement stops at the sentence start rather than its
+preceding punctuation, and no longer moves forward through leading whitespace.
+
+** New command 'jieba-rs-reload-user-dict'.
+An unchanged user dictionary is loaded only once per session, even when several
+buffers use it.  This command forces a reload.  A failed load leaves the
+dictionary and existing segmentation results intact, and a later load can retry
+it.
+
+** Explicit part-of-speech tags replace previous tags.
+Adding an existing word with a tag, or loading a dictionary entry for it, now
+updates the tag shown by part-of-speech displays.
+
+** User dictionary validation is stricter.
+Dictionary words containing NUL and excessive individual or cumulative user
+frequencies are rejected before changing the dictionary.  Saved words and tags
+must be single fields; a saved tag must be nonempty or omitted.  Invalid
+persistence settings are checked before adding the word to the session.
+Appending to a file without a final newline now keeps the new entry on a
+separate line.
+
+** Native string conversion preserves character positions.
+Unicode text, including embedded NUL, is preserved during segmentation and
+tagging.  Non-ASCII unibyte strings and non-Unicode Emacs characters are
+rejected.  Decode raw non-ASCII bytes before passing them to the native module.
+Pure ASCII unibyte strings remain supported.
+
+** Keyword extraction handles empty results and large counts safely.
+Empty input and a zero keyword count return an empty vector after argument
+validation.  Result allocation is bounded by the input size.  Garbage collection
+hooks can call the module while tagged results or keywords are being converted
+to Lisp values without deadlocking.
+
+** NEWS is included in release archives and Nix packages.
+The package and native module versions are both 0.2.0.  Rebuild the native
+module when upgrading from source.
+
+* Changes in emacs-jieba-rs 0.1.0 (2026-07-20)
+
+** Initial release of the Emacs package and Rust dynamic module.
+The package provides precise, full, and search-mode Chinese segmentation,
+part-of-speech tagging, and TF-IDF and TextRank keyword extraction.  TF-IDF is
+the default keyword extraction method.
+
+** Chinese word and sentence movement and optional visual displays.
+'jieba-rs-mode' remaps standard word and sentence movement commands.  Word
+boundary and part-of-speech overlays can be toggled independently.  HMM word
+discovery, normalization rules, and boundary separators are customizable.
+
+** User dictionaries and source and binary installation are supported.
+Words can be loaded from a user dictionary or added during a session, with
+optional persistence.  GNU Make and Nix build the native module and Emacs
+package.  Release archives include the native module.
+
+----------------------------------------------------------------------
+This file is part of emacs-jieba-rs.
+
+emacs-jieba-rs is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+emacs-jieba-rs is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+emacs-jieba-rs.  If not, see <https://www.gnu.org/licenses/>.
+
+Local Variables:
+coding: utf-8
+mode: outline
+fill-column: 80
+End:

@@ -6,7 +6,7 @@
 ;; Author: Bingshan Chang <chang@bingshan.org>
 ;; Keywords: chinese, segmentation
 ;; Package-Requires: ((emacs "30.1"))
-;; Version: 0.1.0
+;; Version: 0.2.0
 
 ;; This file is not part of GNU Emacs.
 

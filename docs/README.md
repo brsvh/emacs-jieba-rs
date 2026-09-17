@@ -13,6 +13,8 @@ Free Documentation License".
 为 GNU Emacs 提供中文分词、词句移动、词性标注、关键词提取和可视词边界。Emacs 包名为 `jieba-rs`，通过 Rust 动态模块调用上游
 [`jieba-rs`](https://github.com/messense/jieba-rs)。
 
+各版本的用户可见变化见 [`NEWS`](../NEWS)。
+
 ## 安装与启用
 
 ### 要求
@@ -215,8 +217,8 @@ Checkdoc 同时覆盖主库、elfmt 格式化工具及二者的测试文件。�
 
 ### 发布归档
 
-`make release-archive` 生成 `dist/jieba-rs-VERSION.tar`，其中包含 Emacs 包和 Rust 模块。
-二者共用版本号，模块不单独发布。发布相关目标还需要 `jq` 和 GNU tar。
+`make release-archive` 生成 `dist/jieba-rs-VERSION.tar`，其中包含 Emacs 包、Rust 模块和
+`NEWS`。Emacs 包和模块共用版本号，模块不单独发布。发布相关目标还需要 `jq` 和 GNU tar。
 
 归档成员清单位于 `tools/release-members.txt`。本地构建和发布工作流分别使用该清单校验归档；发布任务从对应提交读取清单。
 

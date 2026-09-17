@@ -140,9 +140,10 @@
 
                     preBuild = ''
                       install -m 755 ${module}/lib/libjieba_rs_module${ext} jieba-rs-module${ext}
+                      install -m 644 ${projectRoot + /NEWS} NEWS
                     '';
 
-                    files = ''(:defaults "jieba-rs-module${ext}")'';
+                    files = ''(:defaults "jieba-rs-module${ext}" "NEWS")'';
 
                     passthru = {
                       inherit

@@ -99,7 +99,6 @@ static TEXT_RANK: LazyLock<TextRank> =
     LazyLock::new(TextRank::default);
 
 fn validate_dictionary_word(word: &str) -> Result<()> {
-    // Cedar uses a zero byte to terminate keys.
     if word.contains('\0') {
         return Err(emacs::Error::msg(
             "dictionary words must not contain NUL",

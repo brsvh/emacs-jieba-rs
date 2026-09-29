@@ -7,6 +7,17 @@ These notes cover the Emacs package 'jieba-rs' and its Rust dynamic module.
 Both use the same package version, independently of the upstream jieba-rs
 library version.
 
+* Changes in emacs-jieba-rs 0.2.1 (2026-09-29)
+
+** The package now includes a Chinese user manual.
+The release archive and Nix package include the Info manual.  After installing
+the package, type 'C-h i m Jieba RS RET' to read it.  'make doc' builds Info
+and HTML versions; the HTML manual uses the GNU Texinfo stylesheet.
+
+** The source tree uses doc, test, and tool directories.
+The concise Org README is now at the repository root.  Lisp formatting uses
+the independent emacs-elfmt package instead of a bundled formatter.
+
 * Changes in emacs-jieba-rs 0.2.0 (2026-09-17)
 
 ** The native module now uses upstream jieba-rs 0.11.0.

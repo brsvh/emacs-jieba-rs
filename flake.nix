@@ -76,14 +76,12 @@
                 crane-lib = crane.mkLib prev.pkgs;
 
                 rustVersion = "${
-                  (prev.lib.importTOML (projectRoot + /Cargo.toml))
-                  .package.rust-version
+                  (prev.lib.importTOML (projectRoot + /Cargo.toml)).package.rust-version
                 }.0";
 
                 buildCargoPackage =
-                  (crane-lib.overrideToolchain
-                    prev.pkgs.rust-bin.stable.${rustVersion}.default
-                  ).buildPackage;
+                  (crane-lib.overrideToolchain prev.pkgs.rust-bin.stable.${rustVersion}.default)
+                  .buildPackage;
 
                 package =
                   {
@@ -93,6 +91,7 @@
                     stdenv,
                     melpaBuild,
                     projectRoot,
+                    texinfo,
                     ...
                   }:
                   let
@@ -102,12 +101,11 @@
                       maintainers
                       ;
 
-                    ext =
-                      stdenv.hostPlatform.extensions.sharedLibrary;
+                    ext = stdenv.hostPlatform.extensions.sharedLibrary;
 
                     meta = {
                       description = "jieba-rs for GNU Emacs";
-                      homepage = "https://codeberg.org/bingshan/emacs-jieba-rs";
+                      homepage = "https://github.com/brsvh/emacs-jieba-rs";
                       license = licenses.gpl3Plus;
                       maintainers = with maintainers; [ brsvh ];
                     };
@@ -138,9 +136,15 @@
 
                     pname = "jieba-rs";
 
+                    nativeBuildInputs = [
+                      texinfo
+                    ];
+
                     preBuild = ''
                       install -m 755 ${module}/lib/libjieba_rs_module${ext} jieba-rs-module${ext}
                       install -m 644 ${projectRoot + /NEWS} NEWS
+                      makeinfo -I ${projectRoot}/doc --no-split \
+                        -o jieba-rs.info ${projectRoot}/doc/jieba-rs.texi
                     '';
 
                     files = ''(:defaults "jieba-rs-module${ext}" "NEWS")'';
@@ -167,21 +171,19 @@
               in
               (rust-overlay.overlays.default final prev)
               // {
-                emacsPackagesFor =
-                  emacs:
-                  (emacsPackagesFor emacs).overrideScope scope;
+                emacsPackagesFor = emacs: (emacsPackagesFor emacs).overrideScope scope;
               };
           };
         };
 
         partitionedAttrs = {
-          devShells = "tools";
-          formatter = "tools";
+          devShells = "tool";
+          formatter = "tool";
         };
 
         partitions = {
-          tools = {
-            extraInputsFlake = projectRoot + /tools;
+          tool = {
+            extraInputsFlake = projectRoot + /tool;
 
             module =
               {
@@ -189,7 +191,7 @@
               }:
               {
                 imports = [
-                  (projectRoot + /tools/flake-module.nix)
+                  (projectRoot + /tool/flake-module.nix)
                 ];
               };
           };
@@ -212,9 +214,7 @@
 
             lispSources = [
               "lisp/jieba-rs.el"
-              "tools/elfmt/elfmt.el"
-              "tests/jieba-rs-tests.el"
-              "tests/elfmt-tests.el"
+              "test/jieba-rs-tests.el"
             ];
 
             releasePackages = pkgs.emacsPackagesFor pkgs.emacs31;
@@ -255,163 +255,146 @@
 
                     version = "${versions.major base.version}";
 
-                    emacsWithJiebaRs =
-                      (emacsPackagesFor base).emacsWithPackages
-                        (
-                          epkgs: with epkgs; [
-                            jieba-rs
-                          ]
-                        );
+                    emacsWithJiebaRs = (emacsPackagesFor base).emacsWithPackages (
+                      epkgs: with epkgs; [
+                        jieba-rs
+                      ]
+                    );
                   in
                   acc
                   // {
-                    "emacs${version}-with-jieba-rs" =
-                      writeShellApplication
-                        {
-                          name = "emacs${version}-with-jieba-rs";
+                    "emacs${version}-with-jieba-rs" = writeShellApplication {
+                      name = "emacs${version}-with-jieba-rs";
 
-                          runtimeInputs = [
-                            emacsWithJiebaRs
-                          ];
+                      runtimeInputs = [
+                        emacsWithJiebaRs
+                      ];
 
-                          text = ''
-                            exec emacs --init-directory "$(mktemp -d)" "$@"
-                          '';
-                        };
+                      text = ''
+                        exec emacs --init-directory "$(mktemp -d)" "$@"
+                      '';
+                    };
 
-                    "emacs${version}-run-jieba-rs-tests" =
-                      writeShellApplication
-                        {
-                          name = "emacs${version}-run-jieba-rs-tests";
+                    "emacs${version}-run-jieba-rs-tests" = writeShellApplication {
+                      name = "emacs${version}-run-jieba-rs-tests";
 
-                          runtimeInputs = [
-                            coreutils
-                            emacsWithJiebaRs
-                          ];
+                      runtimeInputs = [
+                        coreutils
+                        emacsWithJiebaRs
+                      ];
 
-                          text = ''
-                            initdir="$(mktemp --tmpdir -d emacs-jieba-rs-test-XXXXXX)"
-                            trap 'rm -rf "$initdir"' EXIT
+                      text = ''
+                        initdir="$(mktemp --tmpdir -d emacs-jieba-rs-test-XXXXXX)"
+                        trap 'rm -rf "$initdir"' EXIT
 
-                            emacs --batch \
-                              --init-directory "$initdir" \
-                              -L "${projectRoot}/tools/elfmt" \
-                              -l "${projectRoot + /tests/jieba-rs-tests.el}" \
-                              -l "${projectRoot + /tests/elfmt-tests.el}" \
-                              -f ert-run-tests-batch-and-exit
-                          '';
-                        };
+                        emacs --batch \
+                          --init-directory "$initdir" \
+                          -l "${projectRoot + /test/jieba-rs-tests.el}" \
+                          -f ert-run-tests-batch-and-exit
+                      '';
+                    };
 
-                    "emacs${version}-byte-compile-jieba-rs" =
-                      writeShellApplication
-                        {
-                          name = "emacs${version}-byte-compile-jieba-rs";
+                    "emacs${version}-byte-compile-jieba-rs" = writeShellApplication {
+                      name = "emacs${version}-byte-compile-jieba-rs";
 
-                          runtimeInputs = [
-                            coreutils
-                            gnugrep
-                          ];
+                      runtimeInputs = [
+                        coreutils
+                        gnugrep
+                      ];
 
-                          text = ''
-                            initdir="$(mktemp --tmpdir -d emacs-jieba-rs-byte-compile-XXXXXX)"
-                            workdir="$(mktemp --tmpdir -d emacs-jieba-rs-byte-compile-src-XXXXXX)"
-                            trap 'rm -rf "$initdir" "$workdir"' EXIT
+                      text = ''
+                        initdir="$(mktemp --tmpdir -d emacs-jieba-rs-byte-compile-XXXXXX)"
+                        workdir="$(mktemp --tmpdir -d emacs-jieba-rs-byte-compile-src-XXXXXX)"
+                        trap 'rm -rf "$initdir" "$workdir"' EXIT
 
-                            ${concatMapStringsSep "\n" (source: ''
-                              install -Dm644 "${projectRoot}/${source}" "$workdir/${source}"
-                            '') lispSources}
+                        ${concatMapStringsSep "\n" (source: ''
+                          install -Dm644 "${projectRoot}/${source}" "$workdir/${source}"
+                        '') lispSources}
 
-                            compileLog="$workdir/byte-compile.log"
+                        compileLog="$workdir/byte-compile.log"
 
-                            "${emacsWithJiebaRs}/bin/emacs" --batch \
-                              --init-directory "$initdir" \
-                              -L "$workdir/lisp" \
-                              -L "$workdir/tools/elfmt" \
-                              -L "$workdir/tests" \
-                              --eval '(setq byte-compile-error-on-warn t)' \
-                              -f batch-byte-compile \
-                              ${
-                                concatMapStringsSep " \\\n" (
-                                  source: ''"$workdir/${source}"''
-                                ) lispSources
-                              } \
-                              2>&1 | tee "$compileLog"
+                        "${emacsWithJiebaRs}/bin/emacs" --batch \
+                          --init-directory "$initdir" \
+                          -L "$workdir/lisp" \
+                          -L "$workdir/test" \
+                          --eval '(setq byte-compile-error-on-warn t)' \
+                          -f batch-byte-compile \
+                          ${
+                            concatMapStringsSep " \\\n" (source: ''"$workdir/${source}"'') lispSources
+                          } \
+                          2>&1 | tee "$compileLog"
 
-                            if grep -Fq 'Note:' "$compileLog"; then
-                              printf '%s\n' \
-                                'Byte compilation emitted Note diagnostics:' >&2
-                              grep -F 'Note:' "$compileLog" >&2
-                              exit 1
-                            fi
+                        if grep -Fq 'Note:' "$compileLog"; then
+                          printf '%s\n' \
+                            'Byte compilation emitted Note diagnostics:' >&2
+                          grep -F 'Note:' "$compileLog" >&2
+                          exit 1
+                        fi
 
-                            "${emacsWithJiebaRs}/bin/emacs" --batch \
-                              --init-directory "$initdir" \
-                              -L "$workdir/lisp" \
-                              -L "$workdir/tools/elfmt" \
-                              --eval '(setq native-comp-jit-compilation nil)' \
-                              ${
-                                concatMapStringsSep " \\\n" (
-                                  source:
-                                  ''-l "$workdir/${removeSuffix ".el" source}.elc"''
-                                ) lispSources
-                              } \
-                              --eval '(unless
-                                (byte-code-function-p
-                                 (symbol-function (quote jieba-rs--content-end)))
-                                (error "Expected ordinary Lisp bytecode"))' \
-                              -f ert-run-tests-batch-and-exit
-                          '';
-                        };
+                        "${emacsWithJiebaRs}/bin/emacs" --batch \
+                          --init-directory "$initdir" \
+                          -L "$workdir/lisp" \
+                          --eval '(setq native-comp-jit-compilation nil)' \
+                          ${
+                            concatMapStringsSep " \\\n" (
+                              source: ''-l "$workdir/${removeSuffix ".el" source}.elc"''
+                            ) lispSources
+                          } \
+                          --eval '(unless
+                            (byte-code-function-p
+                             (symbol-function (quote jieba-rs--content-end)))
+                            (error "Expected ordinary Lisp bytecode"))' \
+                          -f ert-run-tests-batch-and-exit
+                      '';
+                    };
 
-                    "emacs${version}-checkdoc-jieba-rs" =
-                      writeShellApplication
-                        {
-                          name = "emacs${version}-checkdoc-jieba-rs";
+                    "emacs${version}-checkdoc-jieba-rs" = writeShellApplication {
+                      name = "emacs${version}-checkdoc-jieba-rs";
 
-                          runtimeInputs = [
-                            coreutils
-                          ];
+                      runtimeInputs = [
+                        coreutils
+                      ];
 
-                          text = ''
-                            initdir="$(mktemp --tmpdir -d emacs-jieba-rs-checkdoc-XXXXXX)"
-                            trap 'rm -rf "$initdir"' EXIT
+                      text = ''
+                        initdir="$(mktemp --tmpdir -d emacs-jieba-rs-checkdoc-XXXXXX)"
+                        trap 'rm -rf "$initdir"' EXIT
 
-                            CHECKDOC_SOURCES="$(
-                              printf '%s\n' \
-                                ${concatMapStringsSep " \\\n" (
-                                  source: ''"${projectRoot}/${source}"''
-                                ) lispSources}
-                            )" \
-                            "${base}/bin/emacs" --batch \
-                              --init-directory "$initdir" \
-                              --eval '(progn
-                                (require (quote checkdoc))
-                                (dolist
-                                    (file
-                                     (split-string
-                                      (getenv "CHECKDOC_SOURCES")
-                                      "\n" t))
-                                  (with-temp-buffer
-                                    (insert-file-contents file)
-                                    (emacs-lisp-mode)
-                                    (setq buffer-file-name file)
-                                    (goto-char (point-min))
-                                    ;; Checkdoc expects the Lisp header first.
-                                    (when (looking-at "#!")
-                                      (delete-region
-                                       (point)
-                                       (progn (forward-line 1) (point))))
-                                    (let ((checkdoc-autofix-flag (quote never)))
-                                      (condition-case error-data
-                                          (checkdoc-current-buffer)
-                                        (error
-                                         (error
-                                          "Checkdoc failed for %s: %s"
-                                          file
-                                          (error-message-string
-                                           error-data))))))))'
-                          '';
-                        };
+                        CHECKDOC_SOURCES="$(
+                          printf '%s\n' \
+                            ${concatMapStringsSep " \\\n" (
+                              source: ''"${projectRoot}/${source}"''
+                            ) lispSources}
+                        )" \
+                        "${base}/bin/emacs" --batch \
+                          --init-directory "$initdir" \
+                          --eval '(progn
+                            (require (quote checkdoc))
+                            (dolist
+                                (file
+                                 (split-string
+                                  (getenv "CHECKDOC_SOURCES")
+                                  "\n" t))
+                              (with-temp-buffer
+                                (insert-file-contents file)
+                                (emacs-lisp-mode)
+                                (setq buffer-file-name file)
+                                (goto-char (point-min))
+                                ;; Checkdoc expects the Lisp header first.
+                                (when (looking-at "#!")
+                                  (delete-region
+                                   (point)
+                                   (progn (forward-line 1) (point))))
+                                (let ((checkdoc-autofix-flag (quote never)))
+                                  (condition-case error-data
+                                      (checkdoc-current-buffer)
+                                    (error
+                                     (error
+                                      "Checkdoc failed for %s: %s"
+                                      file
+                                      (error-message-string
+                                       error-data))))))))'
+                      '';
+                    };
                   }
                 )
                 { }

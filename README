@@ -1,0 +1,89 @@
+# README --- emacs-jieba-rs -*- mode: org; -*-
+
+#+title: emacs-jieba-rs
+#+startup: noindent
+#+options: toc:nil
+
+为 GNU Emacs 提供中文分词、词句移动、词性标注、关键词提取和可视词边界。
+Emacs 包名为 ~jieba-rs~，通过 Rust 动态模块调用
+[[https://github.com/messense/jieba-rs][jieba-rs]]。
+
+* 安装与启用
+
+需要支持动态模块的 Emacs 30.1 或更高版本。从源码构建还需要 Rust 1.88
+或更高版本、Cargo、C 编译器和 GNU Make。Makefile 使用 Linux 的 ~.so~
+模块后缀；Nix 预定义输出支持 ~x86_64-linux~。
+
+在仓库根目录运行：
+
+#+begin_src sh
+make local
+#+end_src
+
+在 Emacs 配置中加入，替换为实际路径：
+
+#+begin_src emacs-lisp
+(add-to-list 'load-path "/path/to/emacs-jieba-rs/lisp")
+(require 'jieba-rs)
+#+end_src
+
+执行 ~M-x jieba-rs-mode~，在当前缓冲区启用。~M-f~、~M-b~ 按词移动，
+~M-e~、~M-a~ 按句移动。常用命令：
+
+| 命令                               | 用途                 |
+|------------------------------------+----------------------|
+| ~jieba-rs-segment-region~           | 对区域分词           |
+| ~jieba-rs-segment-buffer~           | 对缓冲区分词         |
+| ~jieba-rs-toggle-boundaries~        | 切换词边界显示       |
+| ~jieba-rs-toggle-tags~              | 切换词性显示         |
+| ~jieba-rs-extract-keywords-region~  | 提取区域关键词       |
+| ~jieba-rs-extract-keywords-buffer~  | 提取缓冲区关键词     |
+| ~jieba-rs-add-word~                 | 添加词语；~C-u~ 保存 |
+
+通过 ~M-x customize-group RET jieba-rs RET~ 设置选项和外观。
+完整用法见 [[file:doc/jieba-rs.texi][用户手册]]，版本变化见 [[file:NEWS][NEWS]]。
+
+使用 Nix 可运行 ~nix run .#emacs31-with-jieba-rs~ 试用，或用
+~nix build .#jieba-rs~ 构建包。集成方式见手册的安装章节。
+
+* 开发与手册
+
+~lisp/~ 放 Emacs Lisp，~src/~ 放 Rust 模块，~test/~ 放 ERT 测试，
+~doc/~ 放手册，~tool/~ 放开发工具配置。
+
+#+begin_src sh
+make check                       # Cargo 和 ERT 测试
+make doc                         # Info 和 HTML，需 GNU Texinfo
+make check-release-archive       # 构建归档并验证安装，另需 jq 和 GNU tar
+#+end_src
+
+手册输出到 ~dist/manuals/~。可用 ~C-u M-x info~ 打开
+~dist/manuals/info/jieba-rs.info~；HTML 位于 ~dist/manuals/html/~。
+发布归档 ~dist/jieba-rs-VERSION.tar~ 包含原生模块和 Info 手册，
+用 ~M-x package-install-file~ 安装后，可通过 ~C-h i m Jieba RS RET~ 阅读。
+
+~nix develop~ 提供格式化和手册工具；编译所需的 Rust、C 编译器和 Emacs
+需另行提供。~nix fmt~ 使用独立的 [[https://github.com/brsvh/emacs-elfmt][emacs-elfmt]] 格式化 Lisp。
+完整的 Nix 检查入口：
+
+#+begin_src sh
+nix flake check --all-systems
+nix build .#jieba-rs-module
+nix run .#emacs31-run-jieba-rs-tests
+nix run .#emacs31-byte-compile-jieba-rs
+nix run .#emacs31-checkdoc-jieba-rs
+#+end_src
+
+更新依赖时分别运行 ~nix flake update~ 和 ~nix flake update --flake ./tool~。
+
+* 许可证
+
+Copyright (C) 2026 Bingshan Chang <chang@bingshan.org>.
+
+代码使用 GPL-3.0-or-later，见 [[file:COPYING][COPYING]]。本项目使用 AI 辅助开发。
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+A copy of the license is included in [[file:doc/fdl.texi][GNU Free Documentation License]].

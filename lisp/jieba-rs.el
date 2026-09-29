@@ -6,7 +6,7 @@
 ;; Author: Bingshan Chang <chang@bingshan.org>
 ;; Keywords: chinese, segmentation
 ;; Package-Requires: ((emacs "30.1"))
-;; Version: 0.2.0
+;; Version: 0.2.1
 
 ;; This file is not part of GNU Emacs.
 
@@ -26,80 +26,12 @@
 ;;; Commentary:
 
 ;; Jieba Chinese word segmentation for Emacs.
+;; Enable `jieba-rs-mode' in a buffer to use Chinese word and sentence
+;; motion.  Separate commands display segmentation results, word
+;; boundaries, part-of-speech tags, and extracted keywords.
 ;;
-;; Provides ~jieba-rs-mode~, a minor mode with commands to segment
-;; Chinese text using the jieba-rs dynamic module.
-;;
-;; * Usage
-;;
-;; Toggle the mode in current buffer.
-;;
-;; #+begin_src emacs-lisp
-;;   M-x jieba-rs-mode
-;; #+end_src
-;;
-;; Segment the active region.
-;;
-;; #+begin_src emacs-lisp
-;;   M-x jieba-rs-segment-region
-;; #+end_src
-;;
-;; Segment the entire buffer.
-;;
-;; #+begin_src emacs-lisp
-;;   M-x jieba-rs-segment-buffer
-;; #+end_src
-;;
-;; Toggle word boundary display.
-;;
-;; #+begin_src emacs-lisp
-;;   M-x jieba-rs-toggle-boundaries
-;; #+end_src
-;;
-;; Toggle POS tag display.
-;;
-;; #+begin_src emacs-lisp
-;;   M-x jieba-rs-toggle-tags
-;; #+end_src
-;;
-;; Extract keywords by TextRank.
-;;
-;; #+begin_src emacs-lisp
-;;   M-x jieba-rs-extract-keywords-region
-;; #+end_src
-;;
-;; Extract keywords from the entire buffer.
-;;
-;; #+begin_src emacs-lisp
-;;   M-x jieba-rs-extract-keywords-buffer
-;; #+end_src
-;;
-;; * Customization
-;;
-;; ** ~jieba-rs-hmm~
-;;
-;; Enable HMM-based new word discovery.
-;;
-;; ** ~jieba-rs-segment-function~
-;;
-;; Choose the segmentation algorithm.
-;;
-;; ** ~jieba-rs-normalize-rules~
-;;
-;; Per-mode normalization rules for overlay positioning.
-;;
-;; ** ~jieba-rs-boundary-separator~
-;;
-;; String inserted between words as a boundary marker.
-;;
-;; ** ~jieba-rs-extract-function~
-;;
-;; Choose the extraction algorithm: tfidf (default), textrank,
-;; or precise.
-;;
-;; ** ~jieba-rs-user-dict~
-;;
-;; Path to a user dictionary file, or nil to disable.
+;; See the Info manual `(jieba-rs)' for installation, configuration,
+;; user dictionaries, and Lisp interfaces.
 
 ;;; Code:
 

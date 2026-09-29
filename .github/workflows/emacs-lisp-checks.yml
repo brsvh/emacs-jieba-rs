@@ -71,7 +71,8 @@ jobs:
                 'Cargo.lock',
                 'src/**',
                 'lisp/**/*.el',
-                'tests/**',
+                'doc/**',
+                'test/**',
                 'Makefile'
               )
             }}

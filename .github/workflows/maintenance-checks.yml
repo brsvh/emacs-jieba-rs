@@ -10,11 +10,12 @@ on:
       - "**/flake.lock"
       - "**/*.rs"
       - "**/*.el"
-      - "**/*.md"
+      - "doc/**"
+      - README
       - Cargo.toml
       - Cargo.lock
       - Makefile
-      - tools/release-members.txt
+      - tool/release-members.txt
       - "!.agents/**"
   pull_request:
     branches:
@@ -25,11 +26,12 @@ on:
       - "**/flake.lock"
       - "**/*.rs"
       - "**/*.el"
-      - "**/*.md"
+      - "doc/**"
+      - README
       - Cargo.toml
       - Cargo.lock
       - Makefile
-      - tools/release-members.txt
+      - tool/release-members.txt
       - "!.agents/**"
   workflow_call:
   workflow_dispatch:
@@ -83,14 +85,14 @@ jobs:
           set -euo pipefail
 
           nix flake check --all-systems
-          # Agent skill fixtures are not project release sources.
           mapfile -d '' -t format_sources < <(
             git ls-files -z -- \
-              '*.nix' '*.rs' '*.el' '*.md' Makefile \
-              ':(exclude).agents/**'
+              '*.nix' '*.rs' '*.el' Makefile '*/Makefile'
           )
           test "${#format_sources[@]}" -gt 0
           nix fmt -- --fail-on-change "${format_sources[@]}"
+          nix shell --inputs-from . nixpkgs#texinfo nixpkgs#gnumake \
+            --command make -C doc
           nix shell --inputs-from . \
             nixpkgs#actionlint nixpkgs#shellcheck \
             --command actionlint \

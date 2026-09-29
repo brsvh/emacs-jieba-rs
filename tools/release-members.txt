@@ -1,5 +1,0 @@
-COPYING
-NEWS
-jieba-rs-module.so
-jieba-rs-pkg.el
-jieba-rs.el

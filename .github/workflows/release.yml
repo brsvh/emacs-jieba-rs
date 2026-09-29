@@ -186,7 +186,8 @@ jobs:
                 'Cargo.lock',
                 'src/**',
                 'lisp/**/*.el',
-                'tests/**'
+                'doc/**',
+                'test/**'
               )
             }}
           restore-prefixes-first-match: |
@@ -298,6 +299,7 @@ jobs:
             nixpkgs#gnumake
             nixpkgs#gnutar
             nixpkgs#jq
+            nixpkgs#texinfo
             --command
           )
 
@@ -624,7 +626,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           path: release-policy
-          sparse-checkout: tools/release-members.txt
+          sparse-checkout: tool/release-members.txt
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -704,7 +706,7 @@ jobs:
           {
             printf '%s/\n' "$package_dir"
             sed "s|^|${package_dir}/|" \
-              release-policy/tools/release-members.txt
+              release-policy/tool/release-members.txt
           } | sort > "$extract_dir/expected-members"
           tar -tf "release-handoff/assets/${asset}" \
             | sort > "$extract_dir/actual-members"

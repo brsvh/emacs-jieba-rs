@@ -8,6 +8,7 @@ CARGO ?= cargo
 CARGO_TARGET_DIR ?= target
 EMACS ?= emacs
 EMACS_BATCH := $(EMACS) -Q --batch
+INSTALL_INFO ?= install-info
 JQ ?= jq
 TAR ?= tar
 
@@ -15,7 +16,7 @@ BUILD_FILE := Makefile
 DIST_DIR := dist
 LISP_DIR := lisp
 RUST_DIR := src
-TEST_DIR := tests
+TEST_DIR := test
 
 # Package files.
 JIEBA_RS_LISP_FILES := $(LISP_DIR)/jieba-rs.el
@@ -24,15 +25,16 @@ JIEBA_RS_ELC_FILES := $(JIEBA_RS_LISP_FILES:.el=.elc)
 JIEBA_RS_PKG := $(LISP_DIR)/jieba-rs-pkg.el
 JIEBA_RS_AUTOLOADS := $(LISP_DIR)/jieba-rs-autoloads.el
 JIEBA_RS_MODULE := $(LISP_DIR)/jieba-rs-module.so
+JIEBA_RS_INFO := $(DIST_DIR)/manuals/info/jieba-rs.info
 JIEBA_RS_ARCHIVE_STAMP := $(DIST_DIR)/.jieba-rs-archive
-JIEBA_RS_ARCHIVE_MEMBERS := tools/release-members.txt
+JIEBA_RS_ARCHIVE_MEMBERS := tool/release-members.txt
 
 # Rust and test files.
 RUST_FILES := \
 	$(sort $(shell find $(RUST_DIR) -type f -name '*.rs' -print))
 RUST_MODULE := \
 	$(CARGO_TARGET_DIR)/release/libjieba_rs_module.so
-TEST_FILES := $(TEST_DIR)/jieba-rs-tests.el $(TEST_DIR)/elfmt-tests.el
+TEST_FILES := $(TEST_DIR)/jieba-rs-tests.el
 
 # Generated files.
 GENERATED_FILES := \
@@ -100,6 +102,8 @@ endef
 define CHECK_ARCHIVE_INSTALL_ELISP
 (progn
   (require (quote package))
+  (require (quote info))
+  (info-initialize)
   (let ((archive
          (expand-file-name (getenv "PACKAGE_ARCHIVE")))
         (test-dir
@@ -116,6 +120,7 @@ define CHECK_ARCHIVE_INSTALL_ELISP
     (package-install-file archive)
     (require (quote jieba-rs))
     (require (quote jieba-rs-module))
+    (Info-goto-node "(jieba-rs)Top")
     (unless
         (equal
          (jieba-rs-module-segment
@@ -131,6 +136,7 @@ endef
 	check \
 	check-release-archive \
 	clean \
+	doc \
 	local \
 	module \
 	pkg \
@@ -148,6 +154,9 @@ module: $(JIEBA_RS_MODULE)
 autoloads: $(JIEBA_RS_AUTOLOADS)
 
 pkg: $(JIEBA_RS_PKG)
+
+doc:
+	+$(MAKE) -C doc OUTPUT_DIR="$(abspath $(DIST_DIR))/manuals" all
 
 release-version:
 	@set -eu
@@ -225,16 +234,16 @@ check-release-archive: release-archive
 		--eval '$(CHECK_ARCHIVE_INSTALL_ELISP)'
 
 test: module
-	$(EMACS_BATCH) -L $(LISP_DIR) -L tools/elfmt \
-		-l $(JIEBA_RS_MAIN) -l tools/elfmt/elfmt.el \
+	$(EMACS_BATCH) -L $(LISP_DIR) \
+		-l $(JIEBA_RS_MAIN) \
 		$(foreach file,$(TEST_FILES),-l $(file)) \
 		-f ert-run-tests-batch-and-exit
 
 check: module
 	@set -eu
 	$(CARGO) test --locked
-	$(EMACS_BATCH) -L $(LISP_DIR) -L tools/elfmt \
-		-l $(JIEBA_RS_MAIN) -l tools/elfmt/elfmt.el \
+	$(EMACS_BATCH) -L $(LISP_DIR) \
+		-l $(JIEBA_RS_MAIN) \
 		$(foreach file,$(TEST_FILES),-l $(file)) \
 		-f ert-run-tests-batch-and-exit
 
@@ -272,10 +281,14 @@ $(JIEBA_RS_AUTOLOADS): \
 		--eval '$(GENERATE_AUTOLOADS_ELISP)'
 	cp "$$temp_dir/$(notdir $(JIEBA_RS_AUTOLOADS))" "$@"
 
+$(JIEBA_RS_INFO): doc/jieba-rs.texi doc/fdl.texi doc/Makefile
+	+$(MAKE) -C doc OUTPUT_DIR="$(abspath $(DIST_DIR))/manuals" info
+
 $(JIEBA_RS_ARCHIVE_STAMP): \
 	$(JIEBA_RS_LISP_FILES) \
 	$(JIEBA_RS_PKG) \
 	$(JIEBA_RS_MODULE) \
+	$(JIEBA_RS_INFO) \
 	$(JIEBA_RS_ARCHIVE_MEMBERS) \
 	Cargo.toml \
 	Cargo.lock \
@@ -295,7 +308,10 @@ $(JIEBA_RS_ARCHIVE_STAMP): \
 		$(JIEBA_RS_LISP_FILES) \
 		$(JIEBA_RS_PKG) \
 		$(JIEBA_RS_MODULE) \
+		$(JIEBA_RS_INFO) \
 		"$$temp_dir/$$package_dir/"
+	$(INSTALL_INFO) "$$temp_dir/$$package_dir/jieba-rs.info" \
+		"$$temp_dir/$$package_dir/dir"
 	chmod -R u=rwX,go=rX "$$temp_dir/$$package_dir"
 	$(TAR) \
 		--sort=name \

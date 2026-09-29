@@ -1,0 +1,593 @@
+\input texinfo
+@setfilename jieba-rs.info
+@settitle Jieba RS 用户手册
+@documentencoding UTF-8
+@documentlanguage zh_CN
+@set VERSION 0.2.1
+@syncodeindex vr fn
+
+@copying
+本手册介绍 jieba-rs @value{VERSION}。
+
+Copyright @copyright{} 2026 Bingshan Chang <chang@@bingshan.org>.
+
+@quotation
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.3 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.  A
+copy of the license is included in the section entitled ``GNU Free
+Documentation License''.
+@end quotation
+@end copying
+
+@dircategory Emacs
+@direntry
+* Jieba RS: (jieba-rs). Chinese word segmentation and motion in Emacs.
+@end direntry
+
+@titlepage
+@title Jieba RS 用户手册
+@subtitle 版本 @value{VERSION}
+@author Bingshan Chang
+@page
+@insertcopying
+@end titlepage
+
+@contents
+
+@ifnottex
+@node Top
+@top Jieba RS
+
+  Jieba RS 为 GNU Emacs 提供中文分词和按词移动，也能显示词边界、
+标注词性和提取关键词。它由 Emacs Lisp 库 @file{jieba-rs.el}
+和 Rust 动态模块组成。本手册先介绍交互使用，再说明 Lisp 调用接口。
+
+@insertcopying
+@end ifnottex
+
+@menu
+* Installation::        安装软件和阅读手册。
+* Enabling::            在缓冲区中启用和定制。
+* Motion::              按中文词语和句子移动。
+* Segmentation::        查看区域或缓冲区的分词结果。
+* Display::             显示词边界和词性。
+* Keywords::            提取关键词。
+* Dictionaries::        添加词语和保存用户词典。
+* Lisp Interface::      在 Lisp 程序中使用原生模块。
+* Troubleshooting::     排查加载和显示问题。
+* Development::         构建、检查和发布。
+* Copying::             GNU Free Documentation License。
+* Concept Index::       按主题查找。
+* Symbol Index::        按命令、函数和选项查找。
+* Key Index::           按键查找。
+@end menu
+
+@node Installation
+@chapter 安装
+@cindex 安装
+@cindex 动态模块
+
+  使用 Jieba RS 需要 Emacs 30.1 或更高版本，并启用动态模块支持。
+从源码构建还需要 Rust 1.88 或更高版本、Cargo、C 编译器和 GNU Make。
+仓库中的 Makefile 使用 Linux 模块后缀 @file{.so}，Nix 预定义输出
+支持 @code{x86_64-linux}；其他平台需要调整并验证构建配置。
+
+  在仓库根目录运行以下命令，构建 release 模块，将其复制到
+@file{lisp/}，并生成包描述和自动加载文件：
+
+@example
+make local
+@end example
+
+  然后在初始化文件中加入下列配置，将路径替换为实际检出目录：
+
+@lisp
+(add-to-list 'load-path "/path/to/emacs-jieba-rs/lisp")
+(require 'jieba-rs)
+@end lisp
+
+  也可以用 @command{make release-archive} 构建
+@file{dist/jieba-rs-VERSION.tar}，再通过
+@kbd{M-x package-install-file} 安装。归档构建还需要 GNU Texinfo、
+@command{jq} 和 GNU tar。归档包含原生模块和 Info 手册；安装后，
+用 @kbd{C-h i m Jieba RS @key{RET}} 打开手册。
+
+@cindex Nix
+  使用 Nix 时，可在仓库根目录运行
+@command{nix run .#emacs31-with-jieba-rs}，在独立初始化目录中
+启动带有本包的 Emacs 31。运行 @command{nix build .#jieba-rs}
+构建 Emacs 包，运行 @command{nix build .#jieba-rs-module}
+只构建原生模块。
+
+  要集成到已有 Nix 配置，将本仓库作为 flake input，URL 为
+@url{git+https://github.com/brsvh/emacs-jieba-rs.git?ref=main}，
+并把该 input 的 @code{overlays.default} 加入 nixpkgs overlays。
+之后从使用此 overlay 的包集合中选择 @code{jieba-rs}：
+
+@example
+(pkgs.emacsPackagesFor pkgs.emacs).emacsWithPackages (
+  epkgs: [ epkgs.jieba-rs ]
+)
+@end example
+
+  安装或加载 Lisp 库后，还需在所用缓冲区中启用次要模式。
+@xref{Enabling}。
+
+@node Enabling
+@chapter 启用与定制
+@cindex 次要模式
+@findex jieba-rs-mode
+@vindex jieba-rs-mode-map
+@vindex jieba-rs-mode-hook
+
+  在含有中文的缓冲区中执行 @kbd{M-x jieba-rs-mode}。
+这个缓冲区局部的次要模式加载原生模块和已配置的用户词典，
+在模式行显示 @samp{Jieba}，并重映射词句移动命令。
+词边界与词性显示需要分别打开；启用模式本身不会显示标注。
+
+  再次执行该命令即可禁用模式。禁用时恢复原有移动命令，清除当前
+缓冲区的两种标注并取消待执行的显示刷新。已经加入共享词典的词语
+仍然保留；词典的作用范围见 @ref{Dictionaries}。
+
+  在 Lisp 中，@code{(jieba-rs-mode 1)} 启用模式，
+@code{(jieba-rs-mode -1)} 禁用模式。若需在 Text mode 及其派生模式
+中自动启用，可将以下示例加入初始化文件：
+
+@lisp
+(add-hook 'text-mode-hook #'jieba-rs-mode)
+@end lisp
+
+  @code{jieba-rs-mode-hook} 是普通次要模式钩子，在模式切换后运行，
+不接收参数，当前缓冲区为发生切换的缓冲区。若只希望在启用时执行
+动作，钩子函数应先检查 @code{jieba-rs-mode} 的值。
+
+  使用 @kbd{M-x customize-group @key{RET} jieba-rs @key{RET}}
+定制选项和外观。选项默认是全局值；需要只影响当前缓冲区时，可使用
+@code{setq-local}，例如：
+
+@lisp
+(setq-local jieba-rs-hmm nil)
+@end lisp
+
+  分词、关键词、词移动及显示命令要求原生模块已加载。通常先启用
+模式即可满足此条件。模块在同一 Emacs 进程中共享；加载后，
+分词等命令也可在未启用模式的缓冲区中单独调用。
+
+@node Motion
+@chapter 按词句移动
+@cindex 词移动
+@cindex 句移动
+
+  @code{jieba-rs-mode} 通过 @code{jieba-rs-mode-map} 重映射标准
+移动命令。下表列出标准 Emacs 键位；若你给原命令设置了其他键位，
+重映射也会作用于那些键位。
+
+@table @kbd
+@item M-f
+向前移动一个词（@code{jieba-rs-forward-word}），替代
+@code{forward-word}。
+
+@item M-b
+向后移动一个词（@code{jieba-rs-backward-word}），替代
+@code{backward-word}。
+
+@item M-e
+向前移动一句（@code{jieba-rs-forward-sentence}），替代
+@code{forward-sentence}。
+
+@item M-a
+向后移动一句（@code{jieba-rs-backward-sentence}），替代
+@code{backward-sentence}。
+@end table
+
+@kindex M-f @r{(jieba-rs-mode)}
+@kindex M-b @r{(jieba-rs-mode)}
+@kindex M-e @r{(jieba-rs-mode)}
+@kindex M-a @r{(jieba-rs-mode)}
+@findex jieba-rs-forward-word
+@findex jieba-rs-backward-word
+@findex jieba-rs-forward-sentence
+@findex jieba-rs-backward-sentence
+  四个命令都接受数值前缀，表示移动次数；负数反向移动，零不移动。
+例如 @kbd{C-u 3 M-f} 向前移动三个词。它们遵守窄化范围，
+到达可访问区域的边界后停止。
+
+  词移动使用精确分词和 @code{jieba-rs-hmm}，按行处理原文，
+跳过纯空白词元。向前移动停在词尾，向后移动停在词首。
+@code{jieba-rs-segment-function} 只影响显式分词命令，
+不改变词移动所用的算法。参见 @ref{Segmentation}。
+
+  句移动将 @samp{。}、@samp{！}、@samp{？} 和换行视为分隔符，
+不依赖分词算法。向前移动越过连续的句末分隔符；没有终止标点的
+最后一句结束于可访问区域末尾。向后移动跳过尾部标点及空白，
+返回句首。英文句号 @samp{.} 不属于这些分隔符。
+
+@node Segmentation
+@chapter 查看分词结果
+@cindex 分词
+@cindex 窄化
+@findex jieba-rs-segment-region
+@findex jieba-rs-segment-buffer
+
+  选取区域后执行 @kbd{M-x jieba-rs-segment-region}，或执行
+@kbd{M-x jieba-rs-segment-buffer} 处理整个可访问的缓冲区。
+这两个命令不改变原文，也不移动原缓冲区中的 point。结果显示在
+只读的 @samp{*jieba-rs-segment*} 缓冲区中，以 @samp{ | } 分隔词语；
+再次分词会替换其中的内容。缓冲区命令遵守窄化范围。
+
+  区域命令还会显示工具提示；未启用 @code{tooltip-mode} 或
+无法使用图形工具提示时，结果显示在回显区。
+
+@defopt jieba-rs-segment-function
+选择区域和缓冲区分词的算法，默认值为
+@code{jieba-rs-module-segment}。
+
+@table @code
+@item jieba-rs-module-segment
+精确模式，按词语切分文本，适合一般阅读与分析。
+
+@item jieba-rs-module-segment-all
+全模式，扫描所有可能的词语，结果可能相互重叠。
+
+@item jieba-rs-module-segment-search
+搜索引擎模式，在精确分词基础上对长词进一步切分，适合生成搜索词元。
+@end table
+@end defopt
+
+@defopt jieba-rs-hmm
+非 @code{nil} 时启用基于隐马尔可夫模型的新词发现，默认值为
+@code{t}。此选项影响精确分词、搜索分词、词性标注、词移动和
+可视词边界；全模式不使用它。关键词选项为 @code{precise} 时也
+使用此值，TF-IDF 和 TextRank 的原生提取接口不接收此选项。
+@end defopt
+
+  分词输入必须是 Unicode 文本，或纯 ASCII 的单字节字符串。
+如果文本是含非 ASCII 字节的单字节字符串，应先按原编码解码。
+原生模块会拒绝这类未解码输入，以免字符位置与缓冲区位置不一致。
+
+@node Display
+@chapter 词边界与词性显示
+@cindex 词边界
+@cindex 词性
+@cindex 覆盖层
+@findex jieba-rs-toggle-boundaries
+@findex jieba-rs-toggle-tags
+
+  执行 @kbd{M-x jieba-rs-toggle-boundaries} 显示词间分隔符，
+执行 @kbd{M-x jieba-rs-toggle-tags} 显示词性标签。两种显示可以
+独立切换，再次执行相应命令即可关闭。它们使用@dfn{覆盖层}
+（只改变显示的对象），不会向原文插入空格或标签。
+
+  标注覆盖所有显示当前缓冲区的窗口的可见文本，重叠范围只标注一次。
+折叠或其他不可见文本不显示标注。编辑后会先清除旧标注，再在空闲时
+重建；滚动、窗口变化、窄化、显示配置或共享词典变化也会触发刷新。
+切换主模式、关闭缓冲区或禁用 @code{jieba-rs-mode} 会清除显示。
+
+  显示固定使用精确分词，不受 @code{jieba-rs-segment-function}
+影响。词性标签将常见代码转换为 @samp{noun}、@samp{verb}、
+@samp{adj} 等名称；没有映射的代码原样显示。
+
+@defopt jieba-rs-boundary-separator
+词间显示的分隔字符串，默认为两个普通空格。该字符串只用于显示。
+@end defopt
+
+@defvr Face jieba-rs-boundary-face
+词边界分隔符的外观，默认继承 @code{shadow}。
+@end defvr
+
+@defvr Face jieba-rs-tag-face
+词性标签的外观，默认继承 @code{font-lock-keyword-face} 并使用斜体。
+@end defvr
+
+@defopt jieba-rs-max-display-line-length
+允许显示标注的最大行长，默认为 10000 个字符。计数不包括行尾换行，
+并遵守窄化范围。超过上限的行不显示词边界或词性。
+
+设为 @code{nil} 可处理任意长度的行，但超长行可能使 Emacs 停顿。
+这个上限不限制词移动、区域分词、缓冲区分词或关键词提取。
+@end defopt
+
+@defopt jieba-rs-normalize-rules
+对显示分词所用的文本副本应用的规则，格式为
+@code{((@var{mode} . @var{rules}) @dots{})}。
+每条规则为 @code{(@var{regexp} . @var{replacement})}。
+
+使用第一个匹配当前主模式或其父模式的条目；没有匹配条目时，
+使用以 @code{t} 开头的后备条目。匹配模式的规则和后备规则不会合并。
+规则按顺序应用。
+
+默认规则把控制字符、字节顺序标记和部分空白转换为普通空格。
+自定义规则应每次只匹配一个字符，并替换为一个普通空格，保持文本
+字符数不变。此选项不会修改缓冲区，也不影响词移动或显式分词命令。
+@end defopt
+
+  例如，下面只在当前缓冲区中将制表符、换行和全角空格转换为空格，
+供可视标注分词使用：
+
+@lisp
+(setq-local jieba-rs-normalize-rules
+            '((t ("[\t\n　]" . " "))))
+@end lisp
+
+@vindex jieba-rs-tag-names
+@vindex jieba-rs-boundaries-overlays
+@vindex jieba-rs-tag-overlays
+  @code{jieba-rs-tag-names} 是词性名称映射常量。
+@code{jieba-rs-boundaries-overlays} 和 @code{jieba-rs-tag-overlays}
+记录当前缓冲区的覆盖层。它们不是用户选项；显示开关应使用上述命令。
+
+@node Keywords
+@chapter 提取关键词
+@cindex 关键词
+@cindex TF-IDF
+@cindex TextRank
+@findex jieba-rs-extract-keywords-region
+@findex jieba-rs-extract-keywords-buffer
+
+  执行 @kbd{M-x jieba-rs-extract-keywords-region} 处理区域，
+或执行 @kbd{M-x jieba-rs-extract-keywords-buffer} 处理缓冲区的
+可访问部分。命令询问 @samp{Top K: }，默认值为 10，表示最多返回
+多少个关键词。输入非负整数；零得到空结果。
+
+  数值前缀可以直接指定数量，例如
+@kbd{C-u 5 M-x jieba-rs-extract-keywords-region}。单独使用
+@kbd{C-u} 不指定数字，命令仍会询问数量。
+
+  结果显示在只读的 @samp{*jieba-rs-extract*} 缓冲区，每行列出
+一个关键词及其权重；再次提取会替换原结果。命令不改写源文本。
+
+@defopt jieba-rs-extract-function
+选择关键词提取方法，默认为 @code{tfidf}。
+
+@table @code
+@item tfidf
+使用 TF-IDF 提取关键词。
+
+@item textrank
+使用 TextRank 提取关键词。
+
+@item precise
+返回精确模式的分词结果，每行显示一个词，不显示权重。
+命令仍接受或询问 Top K，但该值不限制此模式的结果数量。
+@end table
+@end defopt
+
+@node Dictionaries
+@chapter 用户词典
+@cindex 用户词典
+@cindex 保存词语
+
+  用户词典补充内置词典，使专有名词或常用词组能作为一个词处理。
+词典由同一 Emacs 进程中的所有缓冲区共享。成功添加或加载词语后，
+词移动会使用新词典，已启用的词边界和词性显示会重新刷新。
+
+@defopt jieba-rs-user-dict
+用户词典文件的路径，默认为 @code{user-emacs-directory} 下的
+@file{jieba-rs/user.dict}。设为 @code{nil} 会禁用自动加载和保存。
+@end defopt
+
+  启用 @code{jieba-rs-mode} 时，若配置的文件存在，就加载它。
+同一会话中，文件身份、大小和时间未变化时复用已加载的内容。
+文件不存在时跳过自动加载；读取失败时显示警告。
+
+  词典文件使用 UTF-8 编码，每行写一个词语、非负整数词频和可选
+词性，以空白分隔。例如：
+
+@example
+星际争霸 100 nz
+量子计算机 200
+@end example
+
+@findex jieba-rs-add-word
+  执行 @kbd{M-x jieba-rs-add-word}，在 @samp{Word: } 提示后
+输入词语，将其加入当前会话。交互调用会自动建议词频，不指定词性。
+使用 @kbd{C-u M-x jieba-rs-add-word} 还会将记录追加到用户词典；
+必要时创建父目录。若写入失败，词语仍在当前会话中有效。
+
+  从 Lisp 调用时可提供词频、词性及是否保存，返回实际使用的词频。
+以下示例要求模块已经加载，将词语及标签加入会话并保存到文件：
+
+@lisp
+(jieba-rs-add-word "量子计算机" 200 "nz" t)
+@end lisp
+
+  完整参数为 @code{(jieba-rs-add-word @var{word} &optional
+@var{freq} @var{tag} @var{persist})}。@var{freq} 为 @code{nil}
+时自动建议词频；@var{tag} 为 @code{nil} 时不提供新标签。
+@var{persist} 为非 @code{nil} 时保存记录。
+
+@findex jieba-rs-reload-user-dict
+  修改词典文件后，执行 @kbd{M-x jieba-rs-reload-user-dict}
+可强制重载，即使文件状态未变化。此命令会自行加载模块；未配置
+现存文件或加载失败时会报错。
+
+  加载文件会向共享词典添加或更新记录，不会先清空词典。
+从文件删除一行、切换文件、禁用模式或将路径设为 @code{nil}，
+都不会撤销已经加载的词语。需要恢复内置词典时，启动新的 Emacs
+进程，并确保不再加载不需要的记录。
+
+  词语不能包含 NUL。保存到文件的词语与标签都必须是非空的单个
+字段，不能包含空白或 NUL；不指定标签时使用 @code{nil}。
+保存字段的校验在修改会话词典之前进行。
+
+  用户词频总和不能超过 @code{usize::MAX / 4}，以便为内置词典和
+频次计算保留余量。同一词语的新词频替换此前的用户词频。
+非法词典文件或超出上限的修改会报错，并保持原有词典不变。
+
+@node Lisp Interface
+@chapter Lisp 调用接口
+@cindex Lisp 接口
+@cindex 字符位置
+
+  Lisp 程序可以直接调用原生模块处理字符串，不必创建临时缓冲区。
+以下示例要求 @file{jieba-rs-module.so} 已在 @code{load-path} 中：
+
+@lisp
+(require 'jieba-rs-module)
+(jieba-rs-module-segment "我们中出了一个叛徒" nil)
+@result{} ["我们" "中" "出" "了" "一个" "叛徒"]
+@end lisp
+
+  下列文本参数接受 Unicode 字符串及纯 ASCII 单字节字符串。
+非 ASCII 单字节字符串会触发 @code{wrong-type-argument}。
+普通分词文本可以包含 NUL，词典词语不可以。
+
+@defun jieba-rs-module-segment text hmm
+以精确模式切分 @var{text}，返回词语字符串的向量。
+@var{hmm} 为非 @code{nil} 时启用新词发现。
+@end defun
+
+@defun jieba-rs-module-segment-all text
+以全模式切分 @var{text}，返回词语字符串的向量。
+结果可能包含重叠词语，不能用累加词长的方法计算原文位置。
+@end defun
+
+@defun jieba-rs-module-segment-search text hmm
+以搜索引擎模式切分 @var{text}，返回词语字符串的向量。
+@var{hmm} 控制新词发现。结果可能包含重叠词语。
+@end defun
+
+@defun jieba-rs-module-segment-tag text hmm
+返回属性列表的向量，每个列表含有 @code{:start}、@code{:end}、
+@code{:word} 和 @code{:category}。位置是相对于输入字符串的
+从零开始的字符偏移，结束位置不包含在词内；不是字节偏移或
+Emacs 缓冲区位置。词语和词性代码均为字符串。
+@var{hmm} 控制新词发现。
+@end defun
+
+@defun jieba-rs-module-extract-keywords text top-k method
+返回属性列表的向量，每项含有字符串 @code{:keyword} 和数值
+@code{:weight}。@var{top-k} 为非负整数，@code{nil} 表示 10；
+零或空文本得到空向量。
+
+@var{method} 为字符串 @code{"tfidf"} 时使用 TF-IDF；
+@code{"textrank"}、其他字符串或 @code{nil} 使用 TextRank。
+此接口不接收 @code{jieba-rs-hmm}。
+@end defun
+
+@defun jieba-rs-module-load-user-dict path
+读取 UTF-8 词典文件并合并到共享词典。文件读取失败时触发
+@code{file-error}，格式或频次校验失败时报错。失败的加载不改变
+现有词典。返回 @code{nil}。
+@end defun
+
+@defun jieba-rs-module-add-word word freq tag
+添加或更新词语，返回使用的词频。@var{freq} 为非负整数或
+@code{nil}（自动建议），@var{tag} 为字符串或 @code{nil}。
+提供标签时更新已有标签，@code{nil} 不清除旧标签。
+此函数只修改会话词典，不写入文件。
+@end defun
+
+@defun jieba-rs-module-dictionary-version
+返回共享词典的版本整数。成功添加词语或加载文件后版本递增，
+可用来使缓存失效。
+@end defun
+
+  原生词典接口不负责主动刷新 Lisp 显示。需要同时更新可视标注或
+保存文件时，使用 @code{jieba-rs-add-word} 和
+@code{jieba-rs-reload-user-dict}。参见 @ref{Dictionaries}。
+
+@node Troubleshooting
+@chapter 排查问题
+@cindex 排查问题
+
+@table @asis
+@item 无法找到或加载模块
+检查 @code{module-file-suffix} 是否非 @code{nil}，确认 Emacs
+支持动态模块。确认 @file{jieba-rs-module.so} 位于
+@code{load-path} 中，并与当前系统兼容；源码安装可重新运行
+@command{make local}。启用模式时若模块加载失败，模式会自动关闭，
+并在 @samp{*Warnings*} 缓冲区报告原因。
+
+@item 提示 @samp{Jieba native module not loaded}
+加载 Lisp 库本身不会加载原生模块。先执行 @kbd{M-x jieba-rs-mode}。
+若模式未能启用，先检查加载警告。
+
+@item 某些行没有词边界或词性标签
+确认相应显示已打开，文本未被折叠，并检查
+@code{jieba-rs-max-display-line-length}。超过默认一万字符上限的行
+会被跳过。提高上限前，考虑超长行分词可能带来的停顿。
+参见 @ref{Display}。
+
+@item 词边界与原文错位
+检查自定义 @code{jieba-rs-normalize-rules} 是否改变了字符数量。
+规则必须保持长度；替换多个字符为一个空格会破坏位置对应关系。
+
+@item 词典修改没有生效
+确认 @code{jieba-rs-user-dict} 指向正确的现存文件，再运行
+@kbd{M-x jieba-rs-reload-user-dict} 并检查错误。重载是合并操作，
+不能撤销之前加入的词语。参见 @ref{Dictionaries}。
+@end table
+
+@node Development
+@appendix 开发与构建
+@cindex 构建
+@cindex 测试
+
+  仓库使用 @file{lisp/} 存放 Emacs Lisp，@file{src/} 存放 Rust，
+@file{test/} 存放 ERT 测试，@file{doc/} 存放手册，
+@file{tool/} 存放开发工具配置。以下命令均从仓库根目录运行。
+
+@table @command
+@item make check
+构建原生模块，运行 Cargo 和 ERT 测试。@command{make test}
+只构建模块并运行 ERT。
+
+@item make doc
+使用 GNU Texinfo 构建 Info 和单页 HTML，分别输出到
+@file{dist/manuals/info/} 和 @file{dist/manuals/html/}。
+用 @kbd{C-u M-x info} 指定生成的 Info 文件即可阅读。
+
+@item make release-archive
+构建带原生模块、Info 手册和 @file{NEWS} 的 Emacs 安装归档。
+Lisp 包与 Rust crate 必须具有相同版本号。
+
+@item make check-release-archive
+核对 @file{tool/release-members.txt} 中的归档成员，在隔离目录
+安装包，验证分词和手册加载。需要 GNU Texinfo、@command{jq}
+和 GNU tar。
+
+@item make clean
+删除 @file{lisp/} 中生成的文件和 @file{dist/}，保留
+Cargo 的 @file{target/} 缓存。
+@end table
+
+  @command{nix develop} 提供格式化和手册工具，完整编译环境中的
+Rust、C 编译器和 Emacs 需要另行提供。@command{nix fmt} 通过
+独立的 @code{emacs-elfmt} 格式化 Lisp，并格式化 Nix、Rust
+和 Makefile。工具依赖锁定于 @file{tool/flake.lock}。
+
+  Nix 检查入口如下。@command{nix flake check} 检查输出，
+模块构建运行 Cargo 测试；ERT、严格字节编译和 Checkdoc 分别运行：
+
+@example
+nix flake check --all-systems
+nix build .#jieba-rs-module
+nix run .#emacs31-run-jieba-rs-tests
+nix run .#emacs31-byte-compile-jieba-rs
+nix run .#emacs31-checkdoc-jieba-rs
+@end example
+
+  字节编译检查覆盖主库和本项目的 ERT 文件，并对生成的字节码
+再次运行 ERT。更新依赖时，分别运行 @command{nix flake update}
+和 @command{nix flake update --flake ./tool}。
+
+@node Copying
+@appendix GNU Free Documentation License
+@include fdl.texi
+
+@node Concept Index
+@unnumbered 主题索引
+@printindex cp
+
+@node Symbol Index
+@unnumbered 命令、函数和选项索引
+@printindex fn
+
+@node Key Index
+@unnumbered 按键索引
+@printindex ky
+
+@bye

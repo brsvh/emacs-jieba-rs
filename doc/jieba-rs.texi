@@ -41,8 +41,7 @@ Documentation License''.
 @top Jieba RS
 
   Jieba RS 为 GNU Emacs 提供中文分词和按词移动，也能显示词边界、
-标注词性和提取关键词。它由 Emacs Lisp 库 @file{jieba-rs.el}
-和 Rust 动态模块组成。本手册先介绍交互使用，再说明 Lisp 调用接口。
+标注词性和提取关键词。本手册介绍安装、日常使用和定制方法。
 
 @insertcopying
 @end ifnottex
@@ -55,9 +54,7 @@ Documentation License''.
 * Display::             显示词边界和词性。
 * Keywords::            提取关键词。
 * Dictionaries::        添加词语和保存用户词典。
-* Lisp Interface::      在 Lisp 程序中使用原生模块。
 * Troubleshooting::     排查加载和显示问题。
-* Development::         构建、检查和发布。
 * Copying::             GNU Free Documentation License。
 * Concept Index::       按主题查找。
 * Symbol Index::        按命令、函数和选项查找。
@@ -70,50 +67,18 @@ Documentation License''.
 @cindex 动态模块
 
   使用 Jieba RS 需要 Emacs 30.1 或更高版本，并启用动态模块支持。
-从源码构建还需要 Rust 1.88 或更高版本、Cargo、C 编译器和 GNU Make。
-仓库中的 Makefile 使用 Linux 模块后缀 @file{.so}，Nix 预定义输出
-支持 @code{x86_64-linux}；其他平台需要调整并验证构建配置。
+安装包中的原生模块必须与运行 Emacs 的操作系统和处理器架构匹配。
 
-  在仓库根目录运行以下命令，构建 release 模块，将其复制到
-@file{lisp/}，并生成包描述和自动加载文件：
+  准备好适用于当前系统的 @file{jieba-rs-VERSION.tar} 安装包后，
+执行 @kbd{M-x package-install-file @key{RET}}，输入归档文件的路径。
+Emacs 会安装其中的 Lisp 库、原生模块和 Info 手册，无需手动解包。
 
-@example
-make local
-@end example
+  安装完成后，在含有中文的缓冲区中执行 @kbd{M-x jieba-rs-mode}
+即可启用。如何定制和自动启用，参见 @ref{Enabling}。
 
-  然后在初始化文件中加入下列配置，将路径替换为实际检出目录：
-
-@lisp
-(add-to-list 'load-path "/path/to/emacs-jieba-rs/lisp")
-(require 'jieba-rs)
-@end lisp
-
-  也可以用 @command{make release-archive} 构建
-@file{dist/jieba-rs-VERSION.tar}，再通过
-@kbd{M-x package-install-file} 安装。归档构建还需要 GNU Texinfo、
-@command{jq} 和 GNU tar。归档包含原生模块和 Info 手册；安装后，
-用 @kbd{C-h i m Jieba RS @key{RET}} 打开手册。
-
-@cindex Nix
-  使用 Nix 时，可在仓库根目录运行
-@command{nix run .#emacs31-with-jieba-rs}，在独立初始化目录中
-启动带有本包的 Emacs 31。运行 @command{nix build .#jieba-rs}
-构建 Emacs 包，运行 @command{nix build .#jieba-rs-module}
-只构建原生模块。
-
-  要集成到已有 Nix 配置，将本仓库作为 flake input，URL 为
-@url{git+https://github.com/brsvh/emacs-jieba-rs.git?ref=main}，
-并把该 input 的 @code{overlays.default} 加入 nixpkgs overlays。
-之后从使用此 overlay 的包集合中选择 @code{jieba-rs}：
-
-@example
-(pkgs.emacsPackagesFor pkgs.emacs).emacsWithPackages (
-  epkgs: [ epkgs.jieba-rs ]
-)
-@end example
-
-  安装或加载 Lisp 库后，还需在所用缓冲区中启用次要模式。
-@xref{Enabling}。
+  输入 @kbd{C-h i m Jieba RS @key{RET}} 可以阅读本手册。
+如果手册以单独的 Info 文件提供，使用 @kbd{C-u M-x info}，
+然后输入该文件的路径。
 
 @node Enabling
 @chapter 启用与定制
@@ -412,82 +377,9 @@ make local
 字段，不能包含空白或 NUL；不指定标签时使用 @code{nil}。
 保存字段的校验在修改会话词典之前进行。
 
-  用户词频总和不能超过 @code{usize::MAX / 4}，以便为内置词典和
-频次计算保留余量。同一词语的新词频替换此前的用户词频。
+  同一词语的新词频替换此前的用户词频。词频必须是非负整数，
+所有用户词语的词频总和也必须在模块支持的范围内。
 非法词典文件或超出上限的修改会报错，并保持原有词典不变。
-
-@node Lisp Interface
-@chapter Lisp 调用接口
-@cindex Lisp 接口
-@cindex 字符位置
-
-  Lisp 程序可以直接调用原生模块处理字符串，不必创建临时缓冲区。
-以下示例要求 @file{jieba-rs-module.so} 已在 @code{load-path} 中：
-
-@lisp
-(require 'jieba-rs-module)
-(jieba-rs-module-segment "我们中出了一个叛徒" nil)
-@result{} ["我们" "中" "出" "了" "一个" "叛徒"]
-@end lisp
-
-  下列文本参数接受 Unicode 字符串及纯 ASCII 单字节字符串。
-非 ASCII 单字节字符串会触发 @code{wrong-type-argument}。
-普通分词文本可以包含 NUL，词典词语不可以。
-
-@defun jieba-rs-module-segment text hmm
-以精确模式切分 @var{text}，返回词语字符串的向量。
-@var{hmm} 为非 @code{nil} 时启用新词发现。
-@end defun
-
-@defun jieba-rs-module-segment-all text
-以全模式切分 @var{text}，返回词语字符串的向量。
-结果可能包含重叠词语，不能用累加词长的方法计算原文位置。
-@end defun
-
-@defun jieba-rs-module-segment-search text hmm
-以搜索引擎模式切分 @var{text}，返回词语字符串的向量。
-@var{hmm} 控制新词发现。结果可能包含重叠词语。
-@end defun
-
-@defun jieba-rs-module-segment-tag text hmm
-返回属性列表的向量，每个列表含有 @code{:start}、@code{:end}、
-@code{:word} 和 @code{:category}。位置是相对于输入字符串的
-从零开始的字符偏移，结束位置不包含在词内；不是字节偏移或
-Emacs 缓冲区位置。词语和词性代码均为字符串。
-@var{hmm} 控制新词发现。
-@end defun
-
-@defun jieba-rs-module-extract-keywords text top-k method
-返回属性列表的向量，每项含有字符串 @code{:keyword} 和数值
-@code{:weight}。@var{top-k} 为非负整数，@code{nil} 表示 10；
-零或空文本得到空向量。
-
-@var{method} 为字符串 @code{"tfidf"} 时使用 TF-IDF；
-@code{"textrank"}、其他字符串或 @code{nil} 使用 TextRank。
-此接口不接收 @code{jieba-rs-hmm}。
-@end defun
-
-@defun jieba-rs-module-load-user-dict path
-读取 UTF-8 词典文件并合并到共享词典。文件读取失败时触发
-@code{file-error}，格式或频次校验失败时报错。失败的加载不改变
-现有词典。返回 @code{nil}。
-@end defun
-
-@defun jieba-rs-module-add-word word freq tag
-添加或更新词语，返回使用的词频。@var{freq} 为非负整数或
-@code{nil}（自动建议），@var{tag} 为字符串或 @code{nil}。
-提供标签时更新已有标签，@code{nil} 不清除旧标签。
-此函数只修改会话词典，不写入文件。
-@end defun
-
-@defun jieba-rs-module-dictionary-version
-返回共享词典的版本整数。成功添加词语或加载文件后版本递增，
-可用来使缓存失效。
-@end defun
-
-  原生词典接口不负责主动刷新 Lisp 显示。需要同时更新可视标注或
-保存文件时，使用 @code{jieba-rs-add-word} 和
-@code{jieba-rs-reload-user-dict}。参见 @ref{Dictionaries}。
 
 @node Troubleshooting
 @chapter 排查问题
@@ -496,10 +388,10 @@ Emacs 缓冲区位置。词语和词性代码均为字符串。
 @table @asis
 @item 无法找到或加载模块
 检查 @code{module-file-suffix} 是否非 @code{nil}，确认 Emacs
-支持动态模块。确认 @file{jieba-rs-module.so} 位于
-@code{load-path} 中，并与当前系统兼容；源码安装可重新运行
-@command{make local}。启用模式时若模块加载失败，模式会自动关闭，
-并在 @samp{*Warnings*} 缓冲区报告原因。
+支持动态模块。确认已安装适用于当前系统的包，且其中的原生模块
+与 Lisp 库一起安装在包目录中。启用模式时若模块加载失败，模式会
+自动关闭，并在 @samp{*Warnings*} 缓冲区报告原因。更换安装包后，
+重新启动 Emacs 再试。
 
 @item 提示 @samp{Jieba native module not loaded}
 加载 Lisp 库本身不会加载原生模块。先执行 @kbd{M-x jieba-rs-mode}。
@@ -520,59 +412,6 @@ Emacs 缓冲区位置。词语和词性代码均为字符串。
 @kbd{M-x jieba-rs-reload-user-dict} 并检查错误。重载是合并操作，
 不能撤销之前加入的词语。参见 @ref{Dictionaries}。
 @end table
-
-@node Development
-@appendix 开发与构建
-@cindex 构建
-@cindex 测试
-
-  仓库使用 @file{lisp/} 存放 Emacs Lisp，@file{src/} 存放 Rust，
-@file{test/} 存放 ERT 测试，@file{doc/} 存放手册，
-@file{tool/} 存放开发工具配置。以下命令均从仓库根目录运行。
-
-@table @command
-@item make check
-构建原生模块，运行 Cargo 和 ERT 测试。@command{make test}
-只构建模块并运行 ERT。
-
-@item make doc
-使用 GNU Texinfo 构建 Info 和单页 HTML，分别输出到
-@file{dist/manuals/info/} 和 @file{dist/manuals/html/}。
-用 @kbd{C-u M-x info} 指定生成的 Info 文件即可阅读。
-
-@item make release-archive
-构建带原生模块、Info 手册和 @file{NEWS} 的 Emacs 安装归档。
-Lisp 包与 Rust crate 必须具有相同版本号。
-
-@item make check-release-archive
-核对 @file{tool/release-members.txt} 中的归档成员，在隔离目录
-安装包，验证分词和手册加载。需要 GNU Texinfo、@command{jq}
-和 GNU tar。
-
-@item make clean
-删除 @file{lisp/} 中生成的文件和 @file{dist/}，保留
-Cargo 的 @file{target/} 缓存。
-@end table
-
-  @command{nix develop} 提供格式化和手册工具，完整编译环境中的
-Rust、C 编译器和 Emacs 需要另行提供。@command{nix fmt} 通过
-独立的 @code{emacs-elfmt} 格式化 Lisp，并格式化 Nix、Rust
-和 Makefile。工具依赖锁定于 @file{tool/flake.lock}。
-
-  Nix 检查入口如下。@command{nix flake check} 检查输出，
-模块构建运行 Cargo 测试；ERT、严格字节编译和 Checkdoc 分别运行：
-
-@example
-nix flake check --all-systems
-nix build .#jieba-rs-module
-nix run .#emacs31-run-jieba-rs-tests
-nix run .#emacs31-byte-compile-jieba-rs
-nix run .#emacs31-checkdoc-jieba-rs
-@end example
-
-  字节编译检查覆盖主库和本项目的 ERT 文件，并对生成的字节码
-再次运行 ERT。更新依赖时，分别运行 @command{nix flake update}
-和 @command{nix flake update --flake ./tool}。
 
 @node Copying
 @appendix GNU Free Documentation License
